@@ -58,6 +58,22 @@ class FunctionPage extends StatelessWidget {
                );
              },
           ),
+          _FunctionCard(
+             icon: Icons.forum, 
+             title: '果壳社区',
+             color: Colors.green.shade100,
+             iconColor: Colors.green,
+             onTap: () {
+               Navigator.of(context).push(
+                 MaterialPageRoute(
+                   builder: (_) => const WebViewPage(
+                     url: 'https://gkder.ucas.ac.cn/',
+                     title: '果壳社区',
+                   ),
+                 ),
+               );
+             },
+          ),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../data/ucas_client.dart';
 
 class WebViewPage extends StatefulWidget {
   const WebViewPage({super.key, required this.url, required this.title});
@@ -18,6 +19,29 @@ class _WebViewPageState extends State<WebViewPage> {
   @override
   void initState() {
     super.initState();
+    _initWebView();
+  }
+
+  Future<void> _initWebView() async {
+    // Sync cookies from UcasClient (SEP session)
+    try {
+      final cookieManager = WebViewCookieManager();
+      // Get cookies for SEP (where auth happens)
+      final cookies = await UcasClient.getCookies('https://sep.ucas.ac.cn');
+      for (final cookie in cookies) {
+        await cookieManager.setCookie(
+          WebViewCookie(
+            name: cookie.name,
+            value: cookie.value,
+            domain: 'ucas.ac.cn', // Set for root domain to suffice
+            path: '/',
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error syncing cookies: $e');
+    }
+
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(

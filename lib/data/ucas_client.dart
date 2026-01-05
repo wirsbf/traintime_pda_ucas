@@ -65,6 +65,10 @@ class UcasClient {
   final Dio _dio;
   static final CookieJar _cookieJar = CookieJar();
   static bool _isAuthenticated = false;
+  
+  static Future<List<Cookie>> getCookies(String url) async {
+    return _cookieJar.loadForRequest(Uri.parse(url));
+  }
 
   static const String _sepBase = 'https://sep.ucas.ac.cn';
   static const String _xkgodjBase = 'https://xkgodj.ucas.ac.cn';
