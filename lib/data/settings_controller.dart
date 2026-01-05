@@ -34,9 +34,8 @@ class SettingsController extends ChangeNotifier {
     final storedStartDate = startDateText != null
         ? DateTime.tryParse(startDateText)
         : null;
-    final today = DateTime.now();
-    final defaultStart = DateTime(today.year, today.month, today.day)
-        .subtract(Duration(days: today.weekday - DateTime.monday));
+    // Default: 2025-09-15
+    final defaultStart = DateTime(2025, 9, 15);
 
     final termStartDate = storedStartDate ?? defaultStart;
     final weekOffset = prefs.getInt(_keyWeekOffset) ?? 0;
