@@ -32,7 +32,7 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            storeFile = file("release.jks")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
