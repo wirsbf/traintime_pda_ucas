@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'score_page.dart';
 import 'webview_page.dart';
 import 'exam_page.dart';
+import 'widget/swipe_back_route.dart';
 
 import '../data/settings_controller.dart';
 import '../data/ucas_client.dart';
@@ -33,10 +34,11 @@ class FunctionPage extends StatelessWidget {
       if (context.mounted) {
         Navigator.of(context).pop(); // Close loading
         Navigator.of(context).push(
-           MaterialPageRoute(
-             builder: (_) => const WebViewPage(
+           SwipeBackPageRoute(
+             page: WebViewPage(
                url: 'https://ehall.ucas.ac.cn',
                title: '办事大厅',
+               settings: settings,
              ),
            ),
         );
@@ -64,7 +66,7 @@ class FunctionPage extends StatelessWidget {
              iconColor: Colors.blue,
              onTap: () {
                Navigator.of(context).push(
-                 MaterialPageRoute(builder: (_) => const ScorePage()),
+                 SwipeBackPageRoute(page: const ScorePage()),
                );
              },
           ),
@@ -75,7 +77,7 @@ class FunctionPage extends StatelessWidget {
              iconColor: Colors.purple,
              onTap: () {
                Navigator.of(context).push(
-                 MaterialPageRoute(builder: (_) => const ExamPage()),
+                 SwipeBackPageRoute(page: const ExamPage()),
                );
              },
           ),
@@ -93,10 +95,11 @@ class FunctionPage extends StatelessWidget {
              iconColor: Colors.green,
              onTap: () {
                Navigator.of(context).push(
-                 MaterialPageRoute(
-                   builder: (_) => const WebViewPage(
+                 SwipeBackPageRoute(
+                   page: WebViewPage(
                      url: 'https://gkder.ucas.ac.cn/',
                      title: '果壳社区',
+                     settings: settings,
                    ),
                  ),
                );
