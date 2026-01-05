@@ -185,6 +185,7 @@ class _LectureDetailDialogState extends State<LectureDetailDialog> {
        timeSlot: TimeSlot(startTime: finalStartT, endTime: finalEndT),
        weeks: weekNum.toString(),
        notes: '讲座',
+       displayTime: timeStr, // Use original time string
     );
     
     await CacheManager().addCustomCourse(finalCourse);

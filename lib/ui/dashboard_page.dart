@@ -393,6 +393,9 @@ class _DashboardPageState extends State<DashboardPage> with SingleTickerProvider
                             const Icon(Icons.access_time, size: 14, color: Colors.grey),
                             const SizedBox(width: 4),
                             Builder(builder: (context) {
+                                if (course.displayTime.isNotEmpty) {
+                                  return Text(course.displayTime, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold));
+                                }
                                 int? start = int.tryParse(course.timeSlot.startTime.replaceAll(RegExp(r'[^0-9]'), ''));
                                 int? end = int.tryParse(course.timeSlot.endTime.replaceAll(RegExp(r'[^0-9]'), ''));
                                 String timeStr = '${course.timeSlot.startTime}-${course.timeSlot.endTime}';
@@ -452,7 +455,14 @@ class _DashboardPageState extends State<DashboardPage> with SingleTickerProvider
                 lecture: lecture,
                 settings: widget.settings,
               ),
-            );
+            ).then((_) async {
+               // Refresh custom courses and re-sort
+               final custom = await CacheManager().getCustomCourses();
+               if (mounted) {
+                  setState(() => _customCourses = custom);
+                  _processWithAddedStatus();
+               }
+            });
           },
           child: Card(
             margin: const EdgeInsets.only(bottom: 12),
@@ -474,14 +484,24 @@ class _DashboardPageState extends State<DashboardPage> with SingleTickerProvider
                           ]),
                           const SizedBox(height: 4),
                           Row(children: [
-                             const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                             const SizedBox(width: 4),
                              Expanded(child: Text('${lecture.date} ${lecture.time.contains(' ') ? lecture.time.split(' ').last : ''}', maxLines: 1, overflow: TextOverflow.ellipsis)),
                           ]),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right, color: Colors.grey),
+                    if (_customCourses.any((c) => c.id == 'L_${lecture.id}'))
+                       Container(
+                         margin: const EdgeInsets.only(left: 8),
+                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                         decoration: BoxDecoration(
+                           color: Colors.blue.shade50,
+                           borderRadius: BorderRadius.circular(4),
+                           border: Border.all(color: Colors.blue.shade200),
+                         ),
+                         child: const Text('已添加', style: TextStyle(fontSize: 10, color: Colors.blue)),
+                       )
+                    else 
+                       const Icon(Icons.chevron_right, color: Colors.grey),
                  ],
               ),
             ),

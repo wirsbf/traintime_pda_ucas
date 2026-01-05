@@ -25,6 +25,7 @@ class Course {
   final TimeSlot timeSlot;
   final String weeks;
   final String notes;
+  final String displayTime; // New field for original time string
 
   Course({
     required this.id,
@@ -35,6 +36,7 @@ class Course {
     required this.timeSlot,
     required this.weeks,
     required this.notes,
+    this.displayTime = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -46,6 +48,7 @@ class Course {
         'timeSlot': timeSlot.toJson(),
         'weeks': weeks,
         'notes': notes,
+        'displayTime': displayTime,
       };
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -58,6 +61,7 @@ class Course {
       timeSlot: TimeSlot.fromJson(json['timeSlot'] ?? {}),
       weeks: json['weeks'] ?? '',
       notes: json['notes'] ?? '',
+      displayTime: json['displayTime'] ?? '',
     );
   }
 

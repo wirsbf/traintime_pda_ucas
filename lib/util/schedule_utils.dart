@@ -286,5 +286,6 @@ Course? examToCourse(Exam exam, DateTime termStartDate, int weekOffset) {
     timeSlot: TimeSlot(startTime: finalStartT, endTime: finalEndT),
     weeks: weekNum.toString(),
     notes: '考试 ${exam.time}',
+    displayTime: exam.time, // Use original time
   );
 }
