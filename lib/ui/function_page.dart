@@ -63,15 +63,11 @@ class FunctionPage extends StatelessWidget {
              title: '果壳社区',
              color: Colors.green.shade100,
              iconColor: Colors.green,
-             onTap: () {
-               Navigator.of(context).push(
-                 MaterialPageRoute(
-                   builder: (_) => const WebViewPage(
-                     url: 'https://gkder.ucas.ac.cn/',
-                     title: '果壳社区',
-                   ),
-                 ),
-               );
+             onTap: () async {
+               final uri = Uri.parse('https://gkder.ucas.ac.cn/');
+               if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+               }
              },
           ),
         ],

@@ -24,19 +24,25 @@ class _WebViewPageState extends State<WebViewPage> {
 
   Future<void> _initWebView() async {
     // Sync cookies from UcasClient (SEP session)
+    // Sync cookies from UcasClient (SEP session)
     try {
       final cookieManager = WebViewCookieManager();
-      // Get cookies for SEP (where auth happens)
-      final cookies = await UcasClient.getCookies('https://sep.ucas.ac.cn');
-      for (final cookie in cookies) {
-        await cookieManager.setCookie(
-          WebViewCookie(
-            name: cookie.name,
-            value: cookie.value,
-            domain: 'ucas.ac.cn', // Set for root domain to suffice
-            path: '/',
-          ),
-        );
+      
+      // 1. Get SEP cookies (Auth Source)
+      final sepCookies = await UcasClient.getCookies('https://sep.ucas.ac.cn');
+      for (final c in sepCookies) {
+        // Set for SEP domain (Auth)
+        await cookieManager.setCookie(WebViewCookie(name: c.name, value: c.value, domain: 'sep.ucas.ac.cn', path: '/'));
+        await cookieManager.setCookie(WebViewCookie(name: c.name, value: c.value, domain: '.ucas.ac.cn', path: '/'));
+      }
+
+      // 2. Get Target URL cookies (if any exist in jar)
+      if (!widget.url.contains('sep.ucas.ac.cn')) {
+         final targetCookies = await UcasClient.getCookies(widget.url);
+         final host = Uri.parse(widget.url).host;
+         for (final c in targetCookies) {
+            await cookieManager.setCookie(WebViewCookie(name: c.name, value: c.value, domain: host, path: '/'));
+         }
       }
     } catch (e) {
       debugPrint('Error syncing cookies: $e');
