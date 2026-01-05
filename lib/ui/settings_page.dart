@@ -1,4 +1,5 @@
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../utils/logger.dart';
 import 'package:flutter/material.dart';
 
@@ -102,23 +103,26 @@ class _SettingsPageState extends State<SettingsPage> {
           onChanged: widget.settings.updatePassword,
         ),
         const SizedBox(height: 12),
+        const SizedBox(height: 12),
         _SettingsCard(
-          title: '其他',
-          subtitle: '其他功能的设置',
+          title: '关于',
+          subtitle: 'TraintimePDA UCAS',
           trailing: const SizedBox.shrink(),
         ),
         ListTile(
-          title: const Text('查看日志', style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1F2A44),
-          )),
-          trailing: const Icon(Icons.navigate_next),
-          onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => TalkerScreen(talker: talker)),
-              );
-          },
+          title: const Text('项目地址', style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: const Text('https://github.com/wirsbf/traintime_pda_ucas'),
+          trailing: const Icon(Icons.open_in_new, size: 16),
+          onTap: () => launchUrl(Uri.parse('https://github.com/wirsbf/traintime_pda_ucas')),
+        ),
+        ListTile(
+          title: const Text('作者', style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: const Text('wirsbf'),
+        ),
+        ListTile(
+          title: const Text('检查更新', style: TextStyle(fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.system_update, size: 16),
+          onTap: () => launchUrl(Uri.parse('https://github.com/wirsbf/traintime_pda_ucas/releases')),
         ),
       ],
     );
