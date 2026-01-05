@@ -19,13 +19,17 @@ class _LoginPageState extends State<LoginPage> {
   bool _loading = false;
   String? _error;
   bool _obscurePassword = true;
+  String? _emailSuffix = '@mails.ucas.ac.cn'; // Default suffix
 
   @override
   void initState() {
     super.initState();
-    // Pre-fill if exists (e.g. if user logged out but data persisted, though usually we clear)
     if (widget.settings.username.isNotEmpty) {
       _usernameController.text = widget.settings.username;
+      // If pre-filled text contains @, hide suffix
+      if (widget.settings.username.contains('@')) {
+         _emailSuffix = null;
+      }
     }
   }
 
@@ -37,12 +41,17 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login({String? captchaCode}) async {
-    final username = _usernameController.text.trim();
+    var username = _usernameController.text.trim();
     final password = _passwordController.text;
 
     if (username.isEmpty || password.isEmpty) {
       setState(() => _error = '请输入账号和密码');
       return;
+    }
+
+    // Append suffix if not present
+    if (!username.contains('@')) {
+      username = '$username@mails.ucas.ac.cn';
     }
 
     setState(() {
@@ -53,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await UcasClient().login(username, password, captchaCode: captchaCode);
       
-      // Save credentials
+      // Save credentials (full email)
       widget.settings.updateUsername(username);
       widget.settings.updatePassword(password);
 
@@ -67,6 +76,10 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         final code = await showCaptchaDialog(context, e.image);
         if (code != null) {
+           // Retry with the (possibly processed) username
+           // Wait, recursive call uses _usernameController again? 
+           // If I recursively call _login(captchaCode: code), it re-reads text.
+           // That's fine, logic repeats.
            _login(captchaCode: code);
            return;
         } else {
@@ -126,9 +139,16 @@ class _LoginPageState extends State<LoginPage> {
               // Inputs
               TextField(
                 controller: _usernameController,
+                onChanged: (value) {
+                   setState(() {
+                      _emailSuffix = value.contains('@') ? null : '@mails.ucas.ac.cn';
+                   });
+                },
                 decoration: InputDecoration(
                   labelText: '邮箱 / 账号',
-                  hintText: 'user@mails.ucas.ac.cn',
+                  hintText: 'user',
+                  suffixText: _emailSuffix,
+                  suffixStyle: const TextStyle(color: Colors.grey),
                   prefixIcon: const Icon(Icons.email_outlined),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
