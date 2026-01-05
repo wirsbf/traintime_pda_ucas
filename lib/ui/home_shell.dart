@@ -25,7 +25,7 @@ class _HomeShellState extends State<HomeShell> {
           index: _index,
           children: [
             DashboardPage(settings: widget.settings),
-            const FunctionPage(),
+            FunctionPage(settings: widget.settings),
             SettingsPage(settings: widget.settings),
           ],
         ),

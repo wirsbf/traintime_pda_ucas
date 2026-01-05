@@ -4,8 +4,45 @@ import 'score_page.dart';
 import 'webview_page.dart';
 import 'exam_page.dart';
 
+import '../data/settings_controller.dart';
+import '../data/ucas_client.dart';
+
 class FunctionPage extends StatelessWidget {
-  const FunctionPage({super.key});
+  final SettingsController settings;
+
+  const FunctionPage({super.key, required this.settings});
+
+  Future<void> _handleServiceHallTap(BuildContext context) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Force refresh session (auto-login) to ensure cookies are valid for Service Hall
+      // Service Hall relies on SEP cookies being fresh
+      if (settings.username.isNotEmpty && settings.password.isNotEmpty) {
+         await UcasClient().login(settings.username, settings.password);
+      }
+    } catch (e) {
+      debugPrint('Auto-login failed: $e');
+      // Continue anyway, maybe cookies are still valid or user can login in webview
+    } finally {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading
+        Navigator.of(context).push(
+           MaterialPageRoute(
+             builder: (_) => const WebViewPage(
+               url: 'https://ehall.ucas.ac.cn/v2/site/index',
+               title: '办事大厅',
+             ),
+           ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,27 +84,22 @@ class FunctionPage extends StatelessWidget {
              title: '办事大厅',
              color: Colors.orange.shade100,
              iconColor: Colors.orange,
-             onTap: () {
-               Navigator.of(context).push(
-                 MaterialPageRoute(
-                   builder: (_) => const WebViewPage(
-                     url: 'https://ehall.ucas.ac.cn/v2/site/index',
-                     title: '办事大厅',
-                   ),
-                 ),
-               );
-             },
+             onTap: () => _handleServiceHallTap(context),
           ),
           _FunctionCard(
              icon: Icons.forum, 
              title: '果壳社区',
              color: Colors.green.shade100,
              iconColor: Colors.green,
-             onTap: () async {
-               final uri = Uri.parse('https://gkder.ucas.ac.cn/');
-               if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-               }
+             onTap: () {
+               Navigator.of(context).push(
+                 MaterialPageRoute(
+                   builder: (_) => const WebViewPage(
+                     url: 'https://gkder.ucas.ac.cn/',
+                     title: '果壳社区',
+                   ),
+                 ),
+               );
              },
           ),
         ],
