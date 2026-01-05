@@ -1,13 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../data/ucas_client.dart';
 import '../data/settings_controller.dart';
 
 class WebViewPage extends StatefulWidget {
-  const WebViewPage({super.key, required this.url, required this.title});
+  const WebViewPage({super.key, required this.url, required this.title, this.settings});
 
   final String url;
   final String title;
+  final SettingsController? settings;
 
   @override
   State<WebViewPage> createState() => _WebViewPageState();
@@ -24,33 +26,13 @@ class _WebViewPageState extends State<WebViewPage> {
   }
 
   Future<void> _initWebView() async {
-    // Sync cookies from UcasClient (SEP session)
-    // Sync cookies from UcasClient (SEP session)
-    try {
-      final cookieManager = WebViewCookieManager();
-      
-      // 1. Get SEP cookies (Auth Source)
-      final sepCookies = await UcasClient.getCookies('https://sep.ucas.ac.cn');
-      for (final c in sepCookies) {
-        // Set for SEP domain (Auth)
-        await cookieManager.setCookie(WebViewCookie(name: c.name, value: c.value, domain: 'sep.ucas.ac.cn', path: '/'));
-        await cookieManager.setCookie(WebViewCookie(name: c.name, value: c.value, domain: '.ucas.ac.cn', path: '/'));
-      }
-
-      // 2. Get Target URL cookies (if any exist in jar)
-      if (!widget.url.contains('sep.ucas.ac.cn')) {
-         final targetCookies = await UcasClient.getCookies(widget.url);
-         final host = Uri.parse(widget.url).host;
-         for (final c in targetCookies) {
-            await cookieManager.setCookie(WebViewCookie(name: c.name, value: c.value, domain: host, path: '/'));
-         }
-      }
-    } catch (e) {
-      debugPrint('Error syncing cookies: $e');
-    }
+    // 1. Configure User Agent to match UcasClient (consistent session)
+    // UcasClient uses: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent(userAgent)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
@@ -61,21 +43,65 @@ class _WebViewPageState extends State<WebViewPage> {
              _handleAutoLogin(url);
           },
         ),
-      )
-      ..loadRequest(Uri.parse(widget.url));
+      );
+
+    // 2. Sync Cookies
+    try {
+      final cookieManager = WebViewCookieManager();
+      
+      // Get all cookies from Client
+      final sepCookies = await UcasClient.getCookies('https://sep.ucas.ac.cn');
+      
+      // Inject for multiple domains to ensure coverage
+      final domains = ['sep.ucas.ac.cn', 'ucas.ac.cn', '.ucas.ac.cn', Uri.parse(widget.url).host];
+      final uniqueCookies = <String, Cookie>{};
+      
+      for (final c in sepCookies) {
+         uniqueCookies[c.name] = c;
+      }
+      
+      // Also get target URL cookies if different
+      if (!widget.url.contains('sep.ucas.ac.cn')) {
+         final targetCookies = await UcasClient.getCookies(widget.url);
+         for (final c in targetCookies) {
+            uniqueCookies[c.name] = c;
+         }
+      }
+
+      for (final domain in domains) {
+          if (domain.isEmpty) continue;
+          for (final c in uniqueCookies.values) {
+              try {
+                await cookieManager.setCookie(
+                  WebViewCookie(
+                    name: c.name,
+                    value: c.value,
+                    domain: domain,
+                    path: '/',
+                  ),
+                );
+              } catch (_) {}
+          }
+      }
+    } catch (e) {
+      debugPrint('Error syncing cookies: $e');
+    }
+
+    _controller.loadRequest(Uri.parse(widget.url));
   }
-  
-  // Auto-fill and submit login form if we land on SEP login page
+
   Future<void> _handleAutoLogin(String url) async {
-    // Check if on login page
+    // Fallback: If Cookie Sync failed and we are at login page, try to auto-fill
+    if (widget.settings == null) return;
+    
+    // Check if on SEP Login page
     if (url.contains('sep.ucas.ac.cn') && (url.contains('login') || url.contains('slogin'))) {
-       final settings = await SettingsController.load();
-       if (settings.username.isNotEmpty && settings.password.isNotEmpty) {
-          final u = settings.username;
-          final p = settings.password;
-          
+       // Access properties directly
+       final u = widget.settings!.username;
+       final p = widget.settings!.password;
+       
+       if (u.isNotEmpty && p.isNotEmpty) {
           // JS to fill and submit
-          // Note: The form usually has name='userName', name='pwd', id='sb' (submit button)
           final js = """
              (function() {
                 var u = document.querySelector('input[name="userName"]');
@@ -85,21 +111,20 @@ class _WebViewPageState extends State<WebViewPage> {
                 if (u && p && btn) {
                    u.value = '$u';
                    p.value = '$p';
-                   // Small delay to ensure value is registered?
                    setTimeout(function() {
                       btn.click();
                    }, 500);
                 }
              })();
           """;
-          
-          await _controller.runJavaScript(js);
-          
-          if (mounted) {
-             ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('正在尝试自动登录...'), duration: Duration(seconds: 1)),
-             );
-          }
+          try {
+             await _controller.runJavaScript(js);
+             if (mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('正在自动登录...'), duration: Duration(seconds: 1)),
+               );
+             }
+          } catch (_) {}
        }
     }
   }

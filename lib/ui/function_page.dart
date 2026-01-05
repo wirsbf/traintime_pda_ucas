@@ -35,7 +35,7 @@ class FunctionPage extends StatelessWidget {
         Navigator.of(context).push(
            MaterialPageRoute(
              builder: (_) => const WebViewPage(
-               url: 'https://ehall.ucas.ac.cn/v2/site/index',
+               url: 'https://ehall.ucas.ac.cn',
                title: '办事大厅',
              ),
            ),

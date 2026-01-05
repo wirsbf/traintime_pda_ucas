@@ -774,6 +774,12 @@ class UcasClient {
         validateStatus: (status) => status != null && status < 500,
       ),
     );
+    
+    print('DEBUG: _sepLogin Response Status: ${response.statusCode}');
+    print('DEBUG: _sepLogin Real URI: ${response.realUri}');
+    print('DEBUG: _sepLogin Headers:');
+    response.headers.forEach((k, v) => print('$k: $v'));
+
     final body = response.data ?? '';
 
     // Check for specific error messages first
