@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../data/ucas_client.dart';
+import '../data/settings_controller.dart';
 
 class WebViewPage extends StatefulWidget {
   const WebViewPage({super.key, required this.url, required this.title});
@@ -57,10 +58,50 @@ class _WebViewPageState extends State<WebViewPage> {
           },
           onPageFinished: (String url) {
              if (mounted) setState(() => _loading = false);
+             _handleAutoLogin(url);
           },
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
+  }
+  
+  // Auto-fill and submit login form if we land on SEP login page
+  Future<void> _handleAutoLogin(String url) async {
+    // Check if on login page
+    if (url.contains('sep.ucas.ac.cn') && (url.contains('login') || url.contains('slogin'))) {
+       final settings = await SettingsController.load();
+       if (settings.username.isNotEmpty && settings.password.isNotEmpty) {
+          final u = settings.username;
+          final p = settings.password;
+          
+          // JS to fill and submit
+          // Note: The form usually has name='userName', name='pwd', id='sb' (submit button)
+          final js = """
+             (function() {
+                var u = document.querySelector('input[name="userName"]');
+                var p = document.querySelector('input[name="pwd"]');
+                var btn = document.getElementById('sb');
+                
+                if (u && p && btn) {
+                   u.value = '$u';
+                   p.value = '$p';
+                   // Small delay to ensure value is registered?
+                   setTimeout(function() {
+                      btn.click();
+                   }, 500);
+                }
+             })();
+          """;
+          
+          await _controller.runJavaScript(js);
+          
+          if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('正在尝试自动登录...'), duration: Duration(seconds: 1)),
+             );
+          }
+       }
+    }
   }
 
   @override
