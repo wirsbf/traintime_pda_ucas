@@ -24,6 +24,7 @@ class _SchedulePageState extends State<SchedulePage> {
   final _passwordController = TextEditingController();
   Schedule? _schedule;
   List<Exam>? _exams;
+  List<Exam> _customExams = [];
   List<Course> _customCourses = [];
   String? _status;
   bool _loading = false;
@@ -161,7 +162,13 @@ class _SchedulePageState extends State<SchedulePage> {
       
       // 3. Refresh Custom (if needed)
       final custom = await CacheManager().getCustomCourses();
-      if (mounted) setState(() => _customCourses = custom);
+      final customExams = await CacheManager().getCustomExams();
+      if (mounted) {
+        setState(() {
+          _customCourses = custom;
+          _customExams = customExams;
+        });
+      }
 
       if (mounted) setState(() => _status = null);
     } on CaptchaRequiredException catch (e) {
@@ -249,6 +256,11 @@ class _SchedulePageState extends State<SchedulePage> {
                       final c = examToCourse(e, widget.settings.termStartDate, widget.settings.weekOffset);
                       if (c != null) allCourses.add(c);
                    }
+                }
+                // Add custom exams
+                for (final e in _customExams) {
+                   final c = examToCourse(e, widget.settings.termStartDate, widget.settings.weekOffset);
+                   if (c != null) allCourses.add(c);
                 }
                 allCourses.addAll(_customCourses);
 

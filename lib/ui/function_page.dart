@@ -34,8 +34,8 @@ class FunctionPage extends StatelessWidget {
       if (context.mounted) {
         Navigator.of(context).pop(); // Close loading
         Navigator.of(context).push(
-           SwipeBackPageRoute(
-             page: WebViewPage(
+           MaterialPageRoute(
+             builder: (_) => WebViewPage(
                url: 'https://ehall.ucas.ac.cn',
                title: '办事大厅',
                settings: settings,
@@ -95,8 +95,8 @@ class FunctionPage extends StatelessWidget {
              iconColor: Colors.green,
              onTap: () {
                Navigator.of(context).push(
-                 SwipeBackPageRoute(
-                   page: WebViewPage(
+                 MaterialPageRoute(
+                   builder: (_) => WebViewPage(
                      url: 'https://gkder.ucas.ac.cn/',
                      title: '果壳社区',
                      settings: settings,

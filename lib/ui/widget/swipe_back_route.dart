@@ -79,81 +79,149 @@ class _SwipeBackGestureDetector extends StatefulWidget {
   State<_SwipeBackGestureDetector> createState() => _SwipeBackGestureDetectorState();
 }
 
-class _SwipeBackGestureDetectorState extends State<_SwipeBackGestureDetector> {
-  double _dragOffset = 0;
+class _SwipeBackGestureDetectorState extends State<_SwipeBackGestureDetector>
+    with SingleTickerProviderStateMixin {
+  double _currentOffset = 0;
   bool _isDragging = false;
+  
+  late AnimationController _animController;
 
-  static const double _edgeWidth = 40.0; // Width of the swipe-back trigger zone
-  static const double _dismissThreshold = 0.35; // 35% of screen width to trigger back
+  static const double _edgeWidth = 40.0;
+  static const double _dismissThreshold = 0.35;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _animController.addListener(_onAnimationTick);
+  }
+
+  void _onAnimationTick() {
+    if (!_isDragging && mounted) {
+      setState(() {
+        // Animate from current offset back to 0
+        _currentOffset = _animController.value * _currentOffset;
+        // Reverse the value (1->0 means offset goes to 0)
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _animController.removeListener(_onAnimationTick);
+    _animController.dispose();
+    super.dispose();
+  }
 
   void _handleDragStart(DragStartDetails details) {
-    // Only trigger if starting from left edge
     if (details.localPosition.dx < _edgeWidth) {
       _isDragging = true;
-      _dragOffset = 0;
+      _animController.stop();
+      setState(() {});
     }
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (!_isDragging) return;
     setState(() {
-      _dragOffset = (_dragOffset + details.delta.dx).clamp(0.0, double.infinity);
+      _currentOffset = (_currentOffset + details.delta.dx).clamp(0.0, double.infinity);
     });
   }
 
   void _handleDragEnd(DragEndDetails details) {
     if (!_isDragging) return;
+    _isDragging = false;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final velocity = details.primaryVelocity ?? 0;
 
-    // Pop if dragged far enough or swiped fast enough
-    if (_dragOffset > screenWidth * _dismissThreshold || velocity > 500) {
+    if (_currentOffset > screenWidth * _dismissThreshold || velocity > 800) {
+      // Dismiss
       Navigator.of(context).pop();
+      _currentOffset = 0;
+    } else {
+      // Snap back with spring-like animation
+      final startOffset = _currentOffset;
+      _animController.reset();
+      
+      _animController.addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() => _currentOffset = 0);
+        }
+      });
+      
+      // Use a custom tween for smooth snap-back
+      Animation<double> snapBack = Tween<double>(
+        begin: startOffset,
+        end: 0,
+      ).animate(CurvedAnimation(
+        parent: _animController,
+        curve: Curves.easeOutCubic,
+      ));
+      
+      snapBack.addListener(() {
+        if (mounted) {
+          setState(() => _currentOffset = snapBack.value);
+        }
+      });
+      
+      _animController.forward();
     }
-
-    setState(() {
-      _isDragging = false;
-      _dragOffset = 0;
-    });
   }
 
   void _handleDragCancel() {
-    setState(() {
-      _isDragging = false;
-      _dragOffset = 0;
+    if (!_isDragging) return;
+    _isDragging = false;
+    
+    final startOffset = _currentOffset;
+    Animation<double> snapBack = Tween<double>(
+      begin: startOffset,
+      end: 0,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    snapBack.addListener(() {
+      if (mounted) {
+        setState(() => _currentOffset = snapBack.value);
+      }
     });
+    
+    _animController.forward(from: 0);
   }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final progress = _isDragging ? (_dragOffset / screenWidth).clamp(0.0, 1.0) : 0.0;
-
+    final progress = (_currentOffset / screenWidth).clamp(0.0, 1.0);
+    
     return GestureDetector(
       onHorizontalDragStart: _handleDragStart,
       onHorizontalDragUpdate: _handleDragUpdate,
       onHorizontalDragEnd: _handleDragEnd,
       onHorizontalDragCancel: _handleDragCancel,
-      child: AnimatedContainer(
-        duration: _isDragging ? Duration.zero : const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        transform: Matrix4.identity()
-          ..translate(_dragOffset)
-          ..scale(1.0 - progress * 0.05), // Slight scale down while dragging
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            boxShadow: _isDragging
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2 * (1 - progress)),
-                      blurRadius: 20,
-                      offset: const Offset(-5, 0),
-                    ),
-                  ]
-                : [],
+      child: Transform.translate(
+        offset: Offset(_currentOffset, 0),
+        child: Transform.scale(
+          scale: 1.0 - progress * 0.05,
+          child: Container(
+            decoration: BoxDecoration(
+              boxShadow: _currentOffset > 0
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12 * (1 - progress)),
+                        blurRadius: 12,
+                        offset: const Offset(-2, 0),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: widget.child,
           ),
-          child: widget.child,
         ),
       ),
     );

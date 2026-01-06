@@ -103,28 +103,82 @@ class _SettingsPageState extends State<SettingsPage> {
           onChanged: widget.settings.updatePassword,
         ),
         const SizedBox(height: 12),
-        const SizedBox(height: 12),
         _SettingsCard(
           title: '关于',
           subtitle: 'TraintimePDA UCAS',
-          trailing: const SizedBox.shrink(),
-        ),
-        ListTile(
-          title: const Text('项目地址', style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text('https://github.com/wirsbf/traintime_pda_ucas'),
-          trailing: const Icon(Icons.open_in_new, size: 16),
-          onTap: () => launchUrl(Uri.parse('https://github.com/wirsbf/traintime_pda_ucas')),
-        ),
-        ListTile(
-          title: const Text('作者', style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text('wirsbf'),
-        ),
-        ListTile(
-          title: const Text('检查更新', style: TextStyle(fontWeight: FontWeight.w600)),
-          trailing: const Icon(Icons.system_update, size: 16),
-          onTap: () => launchUrl(Uri.parse('https://github.com/wirsbf/traintime_pda_ucas/releases')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AboutPage()),
+          ),
         ),
       ],
+    );
+  }
+}
+
+class AboutPage extends StatelessWidget {
+  const AboutPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('关于'),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const SizedBox(height: 20),
+          const Center(
+            child: Icon(Icons.train, size: 80, color: Colors.blue),
+          ),
+          const SizedBox(height: 16),
+          const Center(
+            child: Text(
+              'TraintimePDA UCAS',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Center(
+            child: Text(
+              'v1.0.0',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ),
+          const SizedBox(height: 32),
+          ListTile(
+            leading: const Icon(Icons.code),
+            title: const Text('项目地址'),
+            subtitle: const Text('github.com/wirsbf/traintime_pda_ucas'),
+            trailing: const Icon(Icons.open_in_new, size: 16),
+            onTap: () => launchUrl(Uri.parse('https://github.com/wirsbf/traintime_pda_ucas')),
+          ),
+          ListTile(
+            leading: const Icon(Icons.person),
+            title: const Text('作者'),
+            subtitle: const Text('wirsbf'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.system_update),
+            title: const Text('检查更新'),
+            subtitle: const Text('查看最新版本'),
+            trailing: const Icon(Icons.open_in_new, size: 16),
+            onTap: () => launchUrl(Uri.parse('https://github.com/wirsbf/traintime_pda_ucas/releases')),
+          ),
+          const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 16),
+          const Center(
+            child: Text(
+              '基于 TraintimePDA 项目\n感谢 BenderBlog 的开源贡献',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -213,45 +267,51 @@ class _SettingsCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.trailing,
+    this.onTap,
   });
 
   final String title;
   final String subtitle;
   final Widget trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5EAF2)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1F2A44),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE5EAF2)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2A44),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: Color(0xFF64748B)),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
             ),
-          ),
-          trailing,
-        ],
+            trailing,
+          ],
+        ),
       ),
     );
   }

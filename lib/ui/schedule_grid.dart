@@ -268,7 +268,9 @@ class _CourseCard extends StatelessWidget {
     if (courses.isEmpty) return const SizedBox.shrink();
     
     final course = courses.first;
-    final palette = _paletteForWeekday(course.weekday);
+    // Use scarlet color for exams
+    final isExam = course.id.startsWith('E_') || course.name.startsWith('[考试]');
+    final palette = isExam ? _examPalette : _paletteForWeekday(course.weekday);
     final count = courses.length;
 
     return Positioned(
@@ -492,6 +494,13 @@ class _CoursePalette {
     required this.text,
   });
 }
+
+// Scarlet palette for exams (#FF2400)
+const _examPalette = _CoursePalette(
+  border: Color(0xFFFF2400),
+  fill: Color(0xFFFFE5E0),
+  text: Color(0xFF8B1500),
+);
 
 class _LayoutItem {
   _LayoutItem({required this.courses, required this.layout});

@@ -14,9 +14,17 @@ class ExamPage extends StatefulWidget {
 }
 
 class _ExamPageState extends State<ExamPage> {
-  List<Exam>? _exams;
+  List<Exam>? _fetchedExams;
+  List<Exam> _customExams = [];
   bool _loading = false;
   String? _error;
+
+  List<Exam> get _allExams {
+    final all = <Exam>[];
+    if (_fetchedExams != null) all.addAll(_fetchedExams!);
+    all.addAll(_customExams);
+    return all;
+  }
 
   @override
   void initState() {
@@ -27,8 +35,12 @@ class _ExamPageState extends State<ExamPage> {
 
   Future<void> _loadCache() async {
     final cached = await CacheManager().getExams();
-    if (mounted && cached.isNotEmpty) {
-      setState(() => _exams = cached);
+    final customCached = await CacheManager().getCustomExams();
+    if (mounted) {
+      setState(() {
+        if (cached.isNotEmpty) _fetchedExams = cached;
+        _customExams = customCached;
+      });
     }
   }
 
@@ -76,7 +88,7 @@ class _ExamPageState extends State<ExamPage> {
       });
 
       setState(() {
-        _exams = exams;
+        _fetchedExams = exams;
       });
       await CacheManager().saveExams(exams);
     } on CaptchaRequiredException catch (e) {
@@ -112,6 +124,11 @@ class _ExamPageState extends State<ExamPage> {
         title: const Text('考试安排'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _showAddExamDialog,
+            tooltip: '手动添加考试',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loading ? null : _fetchExams,
           ),
@@ -119,6 +136,149 @@ class _ExamPageState extends State<ExamPage> {
       ),
       body: _buildBody(),
     );
+  }
+
+  Future<void> _showAddExamDialog() async {
+    final courseNameController = TextEditingController();
+    final locationController = TextEditingController();
+    final seatController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+    TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
+    TimeOfDay endTime = const TimeOfDay(hour: 11, minute: 0);
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('手动添加考试'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: courseNameController,
+                      decoration: const InputDecoration(
+                        labelText: '课程名称 *',
+                        hintText: '请输入课程名称',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('考试日期'),
+                      subtitle: Text('${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}'),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedDate = picked);
+                        }
+                      },
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('开始时间'),
+                            subtitle: Text(startTime.format(context)),
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: startTime,
+                              );
+                              if (picked != null) {
+                                setDialogState(() => startTime = picked);
+                              }
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('结束时间'),
+                            subtitle: Text(endTime.format(context)),
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: endTime,
+                              );
+                              if (picked != null) {
+                                setDialogState(() => endTime = picked);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: locationController,
+                      decoration: const InputDecoration(
+                        labelText: '考试地点',
+                        hintText: '如：教学楼 101',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: seatController,
+                      decoration: const InputDecoration(
+                        labelText: '座位号',
+                        hintText: '如：25',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (courseNameController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('请输入课程名称')),
+                      );
+                      return;
+                    }
+                    Navigator.pop(context, true);
+                  },
+                  child: const Text('添加'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+      final timeStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}-${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
+      
+      final exam = Exam(
+        courseName: courseNameController.text.trim(),
+        date: dateStr,
+        time: timeStr,
+        location: locationController.text.trim().isEmpty ? '未指定' : locationController.text.trim(),
+        seat: seatController.text.trim(),
+      );
+
+      await CacheManager().addCustomExam(exam);
+      setState(() {
+        _customExams.add(exam);
+      });
+    }
   }
 
   Widget _buildBody() {
@@ -140,34 +300,73 @@ class _ExamPageState extends State<ExamPage> {
         ),
       );
     }
-    if (_exams == null || _exams!.isEmpty) {
+    if (_allExams.isEmpty) {
       return Center(
         child: Column(
            mainAxisAlignment: MainAxisAlignment.center,
            children: [
              const Text('暂无考试安排'),
              const SizedBox(height: 16),
-             ElevatedButton( onPressed: _fetchExams, child: const Text('刷新'))
+             ElevatedButton(onPressed: _fetchExams, child: const Text('刷新')),
+             const SizedBox(height: 8),
+             TextButton(onPressed: _showAddExamDialog, child: const Text('手动添加')),
            ]
         )
       );
     }
 
+    // Sort all exams
+    final sortedExams = List<Exam>.from(_allExams);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    sortedExams.sort((a, b) {
+      int getStatus(Exam e) {
+        if (e.time == '未安排' || e.time == '无考试信息' || e.time == '获取失败' || e.date.isEmpty) return 2;
+        final d = DateTime.tryParse(e.date);
+        if (d == null) return 2;
+        final eDate = DateTime(d.year, d.month, d.day);
+        if (eDate.isBefore(today)) return 1;
+        return 0;
+      }
+      final statusA = getStatus(a);
+      final statusB = getStatus(b);
+      if (statusA != statusB) return statusA.compareTo(statusB);
+      return a.date.compareTo(b.date);
+    });
+
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      itemCount: _exams!.length,
+      itemCount: sortedExams.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        return _ExamCard(exam: _exams![index]);
+        final exam = sortedExams[index];
+        final isCustom = _customExams.any((e) => e.courseName == exam.courseName && e.date == exam.date);
+        return _ExamCard(
+          exam: exam,
+          isCustom: isCustom,
+          onDelete: isCustom ? () async {
+            await CacheManager().removeCustomExam(exam.courseName, exam.date);
+            setState(() {
+              _customExams.removeWhere((e) => e.courseName == exam.courseName && e.date == exam.date);
+            });
+          } : null,
+        );
       },
     );
   }
 }
 
 class _ExamCard extends StatelessWidget {
-  const _ExamCard({required this.exam});
+  const _ExamCard({
+    required this.exam,
+    this.isCustom = false,
+    this.onDelete,
+  });
 
   final Exam exam;
+  final bool isCustom;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -189,9 +388,9 @@ class _ExamCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isFinished ? Colors.grey.shade50 : Colors.white, // Slightly different bg for finished
+        color: isFinished ? Colors.grey.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: isCustom ? const Color(0xFFFF2400).withOpacity(0.3) : Colors.grey.shade200),
         boxShadow: [
            BoxShadow(
              color: Colors.black.withOpacity(0.02),
@@ -207,6 +406,19 @@ class _ExamCard extends StatelessWidget {
            Row(
              crossAxisAlignment: CrossAxisAlignment.start,
              children: [
+               if (isCustom)
+                 Container(
+                   margin: const EdgeInsets.only(right: 8),
+                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                   decoration: BoxDecoration(
+                     color: const Color(0xFFFF2400).withOpacity(0.1),
+                     borderRadius: BorderRadius.circular(4),
+                   ),
+                   child: const Text(
+                     '手动',
+                     style: TextStyle(fontSize: 10, color: Color(0xFFFF2400), fontWeight: FontWeight.w600),
+                   ),
+                 ),
                Expanded(
                  child: Text(
                    exam.courseName,
@@ -217,6 +429,36 @@ class _ExamCard extends StatelessWidget {
                    ),
                  ),
                ),
+               if (isCustom && onDelete != null)
+                 IconButton(
+                   icon: const Icon(Icons.delete_outline, size: 20),
+                   color: Colors.red.shade300,
+                   onPressed: () {
+                     showDialog(
+                       context: context,
+                       builder: (context) => AlertDialog(
+                         title: const Text('删除确认'),
+                         content: Text('确定要删除"${exam.courseName}"的考试吗？'),
+                         actions: [
+                           TextButton(
+                             onPressed: () => Navigator.pop(context),
+                             child: const Text('取消'),
+                           ),
+                           ElevatedButton(
+                             onPressed: () {
+                               Navigator.pop(context);
+                               onDelete?.call();
+                             },
+                             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                             child: const Text('删除'),
+                           ),
+                         ],
+                       ),
+                     );
+                   },
+                   padding: EdgeInsets.zero,
+                   constraints: const BoxConstraints(),
+                 ),
                if (!isScheduled || isFinished)
                  Container(
                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

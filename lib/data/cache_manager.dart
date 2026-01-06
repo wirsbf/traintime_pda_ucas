@@ -158,4 +158,37 @@ class CacheManager {
       await _prefs!.setString('cache_custom_courses', jsonEncode(jsonList));
     } catch (_) {}
   }
+
+  // Custom Exams (Manual Entry)
+  Future<void> addCustomExam(Exam exam) async {
+    if (_prefs == null) await init();
+    final current = await getCustomExams();
+    current.add(exam);
+    try {
+      final jsonList = current.map((e) => e.toJson()).toList();
+      await _prefs!.setString('cache_custom_exams', jsonEncode(jsonList));
+    } catch (_) {}
+  }
+
+  Future<List<Exam>> getCustomExams() async {
+    if (_prefs == null) await init();
+    final jsonStr = _prefs!.getString('cache_custom_exams');
+    if (jsonStr == null) return [];
+    try {
+      final jsonList = jsonDecode(jsonStr) as List;
+      return jsonList.map((e) => Exam.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> removeCustomExam(String courseName, String date) async {
+    if (_prefs == null) await init();
+    final current = await getCustomExams();
+    current.removeWhere((e) => e.courseName == courseName && e.date == date);
+    try {
+      final jsonList = current.map((e) => e.toJson()).toList();
+      await _prefs!.setString('cache_custom_exams', jsonEncode(jsonList));
+    } catch (_) {}
+  }
 }
