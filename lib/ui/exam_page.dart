@@ -281,6 +281,179 @@ class _ExamPageState extends State<ExamPage> {
     }
   }
 
+  Future<void> _showEditExamDialog(Exam exam) async {
+    final courseNameController = TextEditingController(text: exam.courseName);
+    final locationController = TextEditingController(text: exam.location == '未指定' ? '' : exam.location);
+    final seatController = TextEditingController(text: exam.seat);
+    
+    // Parse existing date
+    DateTime selectedDate = DateTime.now();
+    if (exam.date.isNotEmpty) {
+      final parsed = DateTime.tryParse(exam.date);
+      if (parsed != null) selectedDate = parsed;
+    }
+    
+    // Parse existing time
+    TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
+    TimeOfDay endTime = const TimeOfDay(hour: 11, minute: 0);
+    if (exam.time.isNotEmpty && exam.time.contains('-')) {
+      final parts = exam.time.split('-');
+      if (parts.length == 2) {
+        final startParts = parts[0].split(':');
+        final endParts = parts[1].split(':');
+        if (startParts.length == 2 && endParts.length == 2) {
+          startTime = TimeOfDay(
+            hour: int.tryParse(startParts[0]) ?? 9,
+            minute: int.tryParse(startParts[1]) ?? 0,
+          );
+          endTime = TimeOfDay(
+            hour: int.tryParse(endParts[0]) ?? 11,
+            minute: int.tryParse(endParts[1]) ?? 0,
+          );
+        }
+      }
+    }
+
+    final oldCourseName = exam.courseName;
+    final oldDate = exam.date;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('编辑考试'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: courseNameController,
+                      decoration: const InputDecoration(
+                        labelText: '课程名称 *',
+                        hintText: '如：高等数学',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('考试日期'),
+                      subtitle: Text('${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}'),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedDate = picked);
+                        }
+                      },
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('开始时间'),
+                            subtitle: Text(startTime.format(context)),
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: startTime,
+                              );
+                              if (picked != null) {
+                                setDialogState(() => startTime = picked);
+                              }
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('结束时间'),
+                            subtitle: Text(endTime.format(context)),
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: endTime,
+                              );
+                              if (picked != null) {
+                                setDialogState(() => endTime = picked);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: locationController,
+                      decoration: const InputDecoration(
+                        labelText: '考试地点',
+                        hintText: '如：教学楼 101',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: seatController,
+                      decoration: const InputDecoration(
+                        labelText: '座位号',
+                        hintText: '如：25',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (courseNameController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('请输入课程名称')),
+                      );
+                      return;
+                    }
+                    Navigator.pop(context, true);
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+      final timeStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}-${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
+      
+      final newExam = Exam(
+        courseName: courseNameController.text.trim(),
+        date: dateStr,
+        time: timeStr,
+        location: locationController.text.trim().isEmpty ? '未指定' : locationController.text.trim(),
+        seat: seatController.text.trim(),
+      );
+
+      await CacheManager().updateCustomExam(oldCourseName, oldDate, newExam);
+      setState(() {
+        final index = _customExams.indexWhere((e) => e.courseName == oldCourseName && e.date == oldDate);
+        if (index != -1) {
+          _customExams[index] = newExam;
+        }
+      });
+    }
+  }
+
   Widget _buildBody() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -345,6 +518,7 @@ class _ExamPageState extends State<ExamPage> {
         return _ExamCard(
           exam: exam,
           isCustom: isCustom,
+          onEdit: isCustom ? () => _showEditExamDialog(exam) : null,
           onDelete: isCustom ? () async {
             await CacheManager().removeCustomExam(exam.courseName, exam.date);
             setState(() {
@@ -361,11 +535,13 @@ class _ExamCard extends StatelessWidget {
   const _ExamCard({
     required this.exam,
     this.isCustom = false,
+    this.onEdit,
     this.onDelete,
   });
 
   final Exam exam;
   final bool isCustom;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   @override
@@ -429,6 +605,16 @@ class _ExamCard extends StatelessWidget {
                    ),
                  ),
                ),
+               if (isCustom && onEdit != null)
+                 IconButton(
+                   icon: const Icon(Icons.edit_outlined, size: 20),
+                   color: Colors.blue.shade400,
+                   onPressed: onEdit,
+                   padding: EdgeInsets.zero,
+                   constraints: const BoxConstraints(),
+                 ),
+               if (isCustom && onEdit != null && onDelete != null)
+                 const SizedBox(width: 8),
                if (isCustom && onDelete != null)
                  IconButton(
                    icon: const Icon(Icons.delete_outline, size: 20),

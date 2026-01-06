@@ -191,4 +191,17 @@ class CacheManager {
       await _prefs!.setString('cache_custom_exams', jsonEncode(jsonList));
     } catch (_) {}
   }
+
+  Future<void> updateCustomExam(String oldCourseName, String oldDate, Exam newExam) async {
+    if (_prefs == null) await init();
+    final current = await getCustomExams();
+    final index = current.indexWhere((e) => e.courseName == oldCourseName && e.date == oldDate);
+    if (index != -1) {
+      current[index] = newExam;
+      try {
+        final jsonList = current.map((e) => e.toJson()).toList();
+        await _prefs!.setString('cache_custom_exams', jsonEncode(jsonList));
+      } catch (_) {}
+    }
+  }
 }
