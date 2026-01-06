@@ -1,5 +1,9 @@
 allprojects {
     repositories {
+        // Aliyun mirrors first (for China & more reliable from GitHub Actions)
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        // Original repositories as fallback
         google()
         mavenCentral()
     }
