@@ -19,6 +19,21 @@ fn init_logger() {
                     .with_tag("RustOcr"),
             );
             log::info!("Android Logger initialized");
+            
+            // Explicitly load libonnxruntime.so with RTLD_GLOBAL (0x100) | RTLD_NOW (0x2)
+            // This ensures ddddocr/ort can find the symbols
+            unsafe {
+                match libloading::os::unix::Library::open(Some("libonnxruntime.so"), 0x102) {
+                    Ok(lib) => {
+                        // Leak the library to keep it loaded forever
+                        std::mem::forget(lib);
+                        log::info!("Successfully loaded libonnxruntime.so with RTLD_GLOBAL");
+                    },
+                    Err(e) => {
+                        log::error!("Failed to load libonnxruntime.so: {:?}", e);
+                    }
+                }
+            }
         }
     });
 }
