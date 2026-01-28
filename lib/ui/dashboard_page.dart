@@ -115,10 +115,12 @@ class _DashboardPageState extends State<DashboardPage>
       }
     }
 
-    // 3. Fetch Data
-    await _fetchSchedule();
-    await _fetchExams(); // New
-    await _fetchLectures();
+    // 3. Fetch Data in Parallel
+    await Future.wait([
+      _fetchSchedule(),
+      _fetchExams(),
+      _fetchLectures(),
+    ]);
 
     // Refresh custom courses from cache (in case they changed elsewhere)
     final custom = await CacheManager().getCustomCourses();
