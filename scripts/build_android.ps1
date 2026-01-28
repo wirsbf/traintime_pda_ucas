@@ -50,9 +50,9 @@ Push-Location rust
 # Define targets and mapping to Android ABIs
 # Format: @{ RustTarget = "target-triple"; AndroidAbi = "jni-lib-name" }
 $Targets = @(
-    @{ Rust = "aarch64-linux-android"; Abi = "arm64-v8a" },
-    @{ Rust = "armv7-linux-androideabi"; Abi = "armeabi-v7a" },
-    @{ Rust = "x86_64-linux-android"; Abi = "x86_64" }
+    @{ Rust = "aarch64-linux-android"; Abi = "arm64-v8a" }
+    # @{ Rust = "armv7-linux-androideabi"; Abi = "armeabi-v7a" },
+    # @{ Rust = "x86_64-linux-android"; Abi = "x86_64" }
 )
 
 # Ensure targets installed
