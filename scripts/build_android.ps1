@@ -100,8 +100,19 @@ foreach ($t in $Targets) {
     
     # Try to copy libc++_shared.so from NDK (Generic attempt)
     # Common NDK path: toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/lib/<triple>/libc++_shared.so
-    if ($env:ANDROID_NDK_HOME) {
-        $NdkRoot = $env:ANDROID_NDK_HOME
+    
+    $NdkRoot = $env:ANDROID_NDK_HOME
+    
+    # Auto-detect NDK if not set
+    if (-not $NdkRoot) {
+        $AutoNdk = Get-ChildItem -Path "$env:LOCALAPPDATA/Android/Sdk/ndk" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+        if ($AutoNdk) {
+            $NdkRoot = $AutoNdk.FullName
+            Write-Host "Auto-detected NDK: $NdkRoot"
+        }
+    }
+
+    if ($NdkRoot) {
         $Triple = $RustTarget
         if ($RustTarget -eq "armv7-linux-androideabi") { $Triple = "arm-linux-androideabi" }
         
@@ -118,7 +129,7 @@ foreach ($t in $Targets) {
              Write-Warning "Could not find libc++_shared.so for $Triple in NDK. App might crash if STL is missing."
         }
     } else {
-        Write-Warning "ANDROID_NDK_HOME not set. Skiping libc++_shared.so copy. Ensure NDK is configured."
+        Write-Warning "ANDROID_NDK_HOME not set and auto-detection failed. Skiping libc++_shared.so copy."
     }
 }
 
