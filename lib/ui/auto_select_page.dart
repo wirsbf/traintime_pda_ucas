@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../logic/course_robber.dart';
 import '../data/settings_controller.dart';
+import 'captcha_dialog.dart';
 
 class AutoSelectPage extends StatelessWidget {
   final SettingsController settings;
@@ -38,6 +39,15 @@ class _AutoSelectViewState extends State<_AutoSelectView>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    
+    // Wire up manual captcha callback after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final robber = context.read<CourseRobber>();
+      robber.onManualCaptchaNeeded = (imageBytes) async {
+        // Show captcha dialog for manual input
+        return showCaptchaDialog(context, imageBytes);
+      };
+    });
   }
 
   @override

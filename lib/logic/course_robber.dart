@@ -83,6 +83,9 @@ class CourseRobber extends ChangeNotifier {
   final UcasClient _client = UcasClient();
   final SettingsController _settings;
 
+  /// Maximum OCR attempts before requesting manual input
+  static const int _maxOcrRetries = 3;
+
   RobberStatus _status = RobberStatus.idle;
   RobberStatus get status => _status;
 
@@ -102,6 +105,11 @@ class CourseRobber extends ChangeNotifier {
 
   Timer? _timer;
   bool _isStopping = false;
+
+  /// Callback for manual captcha input when OCR fails after retries.
+  /// UI should set this to show a dialog and return the user-entered code.
+  /// Return null to abort the current operation.
+  Future<String?> Function(Uint8List imageBytes)? onManualCaptchaNeeded;
 
   CourseRobber(this._settings);
 
@@ -403,24 +411,51 @@ class CourseRobber extends ChangeNotifier {
 
         String? code;
         
-        // Use platform-aware OCR (Rust on Desktop, ML Kit on Android)
-        try {
-           final ocrResult = await CaptchaOcr.instance.solveCaptcha(bytes);
-           if (ocrResult != null && ocrResult.length >= 4) {
-             code = ocrResult;
-             _log("验证码识别: $code");
-           } else {
-             final err = CaptchaOcr.instance.lastError;
-             _log("验证码识别失败, 错误: $err", isError: true);
-           }
-        } catch (e) {
-           _log("OCR调用异常: $e", isError: true);
+        // Try OCR up to _maxOcrRetries times before asking for manual input
+        for (int ocrAttempt = 1; ocrAttempt <= _maxOcrRetries; ocrAttempt++) {
+          try {
+            final ocrResult = await CaptchaOcr.instance.solveCaptcha(bytes);
+            if (ocrResult != null && ocrResult.length >= 4) {
+              code = ocrResult;
+              _log("验证码识别成功 (尝试 $ocrAttempt): $code");
+              break;
+            } else {
+              final err = CaptchaOcr.instance.lastError;
+              _log("OCR尝试 $ocrAttempt/$_maxOcrRetries 失败: ${err ?? '未知错误'}");
+            }
+          } catch (e) {
+            _log("OCR尝试 $ocrAttempt/$_maxOcrRetries 异常: $e");
+          }
+          
+          // If not last attempt, fetch a new captcha for retry
+          if (ocrAttempt < _maxOcrRetries) {
+            await Future.delayed(const Duration(milliseconds: 300));
+            bytes = await _client.getCourseSelectionCaptcha();
+            // Decode base64 if needed
+            final bytesStrRetry = String.fromCharCodes(bytes);
+            if (bytesStrRetry.startsWith('data:image/')) {
+              final commaIdx = bytesStrRetry.indexOf(',');
+              if (commaIdx != -1) {
+                bytes = base64Decode(bytesStrRetry.substring(commaIdx + 1));
+              }
+            }
+          }
+        }
+        
+        // If OCR failed after all retries, ask for manual input
+        if (code == null) {
+          _log("OCR重试 $_maxOcrRetries 次均失败，请求手动输入...");
+          if (onManualCaptchaNeeded != null) {
+            code = await onManualCaptchaNeeded!(bytes);
+            if (code != null && code.isNotEmpty) {
+              _log("用户手动输入验证码: $code");
+            }
+          }
         }
 
-        if (code == null) {
-          _log("验证码识别失败，停止任务", isError: true);
-          _stop(RobberStatus.error);
-          return;
+        if (code == null || code.isEmpty) {
+          _log("验证码获取失败（无自动识别且用户未输入），跳过本次尝试", isError: true);
+          continue; // Continue outer retry loop instead of stopping
         }
 
         // Submit
