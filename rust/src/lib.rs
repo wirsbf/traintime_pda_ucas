@@ -20,6 +20,20 @@ fn init_logger() {
             );
             log::info!("Android Logger initialized");
             
+            // Explicitly load libc++_shared.so first (STL dependency)
+            unsafe {
+                match libloading::os::unix::Library::open(Some("libc++_shared.so"), 0x102) {
+                    Ok(lib) => {
+                        std::mem::forget(lib);
+                        log::info!("Successfully loaded libc++_shared.so with RTLD_GLOBAL");
+                    },
+                    Err(e) => {
+                         // It might be preloaded by Zygote or dependencies, so not always fatal
+                        log::warn!("Failed to load libc++_shared.so (might be okay if already loaded): {:?}", e);
+                    }
+                }
+            }
+
             // Explicitly load libonnxruntime.so with RTLD_GLOBAL (0x100) | RTLD_NOW (0x2)
             // This ensures ddddocr/ort can find the symbols
             unsafe {
