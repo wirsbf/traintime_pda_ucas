@@ -1,14 +1,32 @@
 name: Build macOS
 
 on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
-  build-macos:
+  build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       
+      # 1. Setup Rust
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          
+      # 2. Build Rust Library
+      - name: Build Rust Library
+        run: |
+          cd rust
+          cargo build --release
+          cd ..
+          
+      # 3. Setup Flutter
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
@@ -16,9 +34,16 @@ jobs:
           
       - run: flutter pub get
       
+      # 4. Build Flutter App
       - run: flutter build macos --release
       
+      # 5. Copy Rust dylib
+      - name: Copy Rust Library
+        run: |
+          cp rust/target/release/librust_ocr.dylib build/macos/Build/Products/Release/traintime_pda_ucas.app/Contents/MacOS/
+          
+      # 6. Upload Artifact
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-app
+          name: traintime-pda-macos
           path: build/macos/Build/Products/Release/traintime_pda_ucas.app
