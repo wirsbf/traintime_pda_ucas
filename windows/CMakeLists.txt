@@ -57,6 +57,20 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# === Rust OCR Integration ===
+# Build Rust library before the main app
+set(RUST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../rust")
+if(EXISTS "${RUST_SOURCE_DIR}/Cargo.toml")
+  add_custom_target(build_rust_ocr ALL
+    COMMAND cargo build --release
+    WORKING_DIRECTORY ${RUST_SOURCE_DIR}
+    COMMENT "Building Rust OCR library..."
+    VERBATIM
+  )
+  add_dependencies(${BINARY_NAME} build_rust_ocr)
+endif()
+
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can
@@ -86,6 +100,15 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Install Rust DLL
+set(RUST_DLL "${CMAKE_CURRENT_SOURCE_DIR}/../rust/target/release/rust_ocr.dll")
+if(EXISTS "${RUST_DLL}")
+  install(FILES "${RUST_DLL}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")

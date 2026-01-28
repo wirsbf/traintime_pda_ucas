@@ -74,6 +74,19 @@ set_target_properties(${BINARY_NAME}
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# === Rust OCR Integration ===
+set(RUST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../rust")
+if(EXISTS "${RUST_SOURCE_DIR}/Cargo.toml")
+  add_custom_target(build_rust_ocr ALL
+    COMMAND cargo build --release
+    WORKING_DIRECTORY ${RUST_SOURCE_DIR}
+    COMMENT "Building Rust OCR library..."
+    VERBATIM
+  )
+  add_dependencies(${BINARY_NAME} build_rust_ocr)
+endif()
+
+
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build
@@ -105,6 +118,13 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endforeach(bundled_library)
+
+# Install Rust SO
+set(RUST_LIB "${CMAKE_CURRENT_SOURCE_DIR}/../rust/target/release/librust_ocr.so")
+install(FILES "${RUST_LIB}"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
