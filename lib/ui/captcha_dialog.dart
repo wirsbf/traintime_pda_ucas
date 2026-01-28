@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../data/rust_ocr.dart';
+import '../data/captcha_ocr.dart';
 
 Future<String?> showCaptchaDialog(BuildContext context, Uint8List image) {
   return showDialog<String>(
@@ -21,7 +21,7 @@ class _CaptchaDialogHelper extends StatefulWidget {
 class _CaptchaDialogHelperState extends State<_CaptchaDialogHelper> {
   final _codeController = TextEditingController();
   bool _recognizing = true;
-  String _statusText = '正在通过 Rust OCR 识别...';
+  String _statusText = '正在识别验证码...';
 
   @override
   void initState() {
@@ -41,9 +41,9 @@ class _CaptchaDialogHelperState extends State<_CaptchaDialogHelper> {
     
     String? result;
     try {
-      result = RustOcr.instance.solveCaptcha(widget.image);
+      result = await CaptchaOcr.instance.solveCaptcha(widget.image);
     } catch (e) {
-      debugPrint("Rust OCR Exception: $e");
+      debugPrint("CaptchaOcr Exception: $e");
     }
 
     if (!mounted) return;
@@ -54,7 +54,7 @@ class _CaptchaDialogHelperState extends State<_CaptchaDialogHelper> {
         _codeController.text = result;
         _statusText = '识别成功';
       } else {
-        final err = RustOcr.instance.getLastError();
+        final err = CaptchaOcr.instance.lastError;
         _statusText = '识别失败: ${err ?? "未知错误"}';
       }
     });

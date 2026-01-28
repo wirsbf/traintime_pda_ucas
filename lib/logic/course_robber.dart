@@ -1,15 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart'; // Add services
+import 'package:flutter/services.dart';
 import 'package:html/parser.dart' as html;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import '../data/rust_ocr.dart'; // Import native FFI
-import '../data/ucas_client.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import '../data/rust_ocr.dart'; // Import native FFI
+import '../data/captcha_ocr.dart';
 import '../data/ucas_client.dart';
 import '../data/settings_controller.dart';
 
@@ -407,14 +403,14 @@ class CourseRobber extends ChangeNotifier {
 
         String? code;
         
-        // Use Rust OCR
+        // Use platform-aware OCR (Rust on Desktop, ML Kit on Android)
         try {
-           final rustCode = RustOcr.instance.solveCaptcha(bytes);
-           if (rustCode != null && rustCode.length >= 4) {
-             code = rustCode;
+           final ocrResult = await CaptchaOcr.instance.solveCaptcha(bytes);
+           if (ocrResult != null && ocrResult.length >= 4) {
+             code = ocrResult;
              _log("验证码识别: $code");
            } else {
-             final err = RustOcr.instance.getLastError();
+             final err = CaptchaOcr.instance.lastError;
              _log("验证码识别失败, 错误: $err", isError: true);
            }
         } catch (e) {

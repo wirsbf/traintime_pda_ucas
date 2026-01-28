@@ -53,6 +53,8 @@ dependencies:
   provider: ^6.1.5+1
   ffi: ^2.1.0
 
+  # ML Kit Text Recognition for Android fallback
+  google_mlkit_text_recognition: ^0.14.0
 
   webview_flutter_android: any
 dev_dependencies:
