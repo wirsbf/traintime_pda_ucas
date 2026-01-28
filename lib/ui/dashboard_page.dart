@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/settings_controller.dart';
 import '../ui/widget/bouncing_button.dart';
 import '../data/ucas_client.dart';
+import '../data/login_helper.dart';
 import '../model/schedule.dart';
 import '../model/lecture.dart';
 import '../model/exam.dart';
@@ -81,29 +82,22 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Future<void> _fetchData({bool force = false}) async {
-    // 1. Always Login Check
+    // 1. Login with auto-OCR retry (3 attempts before manual dialog)
     try {
-      await UcasClient().login(
+      final captchaImage = await LoginHelper().loginWithAutoOcr(
         widget.settings.username,
         widget.settings.password,
+        onManualCaptchaNeeded: mounted ? (image) => showCaptchaDialog(context, image) : null,
       );
-    } on CaptchaRequiredException catch (e) {
-      if (mounted) {
-        final code = await showCaptchaDialog(context, e.image);
-        if (code != null) {
-          await UcasClient().login(
-            widget.settings.username,
-            widget.settings.password,
-            captchaCode: code,
-          );
-        } else {
-          return; // Cancelled
-        }
+      
+      if (captchaImage != null) {
+        // Manual input was cancelled
+        debugPrint('Login cancelled by user');
+        return;
       }
     } catch (e) {
       debugPrint('Login failed: $e');
-      // Continue if we have cache? But usually we stop or show error.
-      // User asked for "Always Login".
+      // Continue if we have cache
     }
 
     // 2. Check 12h Cache
