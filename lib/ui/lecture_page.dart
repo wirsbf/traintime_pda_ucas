@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../data/settings_controller.dart';
 import '../data/ucas_client.dart';
 import '../model/lecture.dart';
-import 'captcha_dialog.dart';
 import 'lecture_detail_dialog.dart';
 import '../data/cache_manager.dart';
 import 'widget/bouncing_button.dart';
@@ -30,33 +29,33 @@ class _LecturePageState extends State<LecturePage> {
     _refreshAddedStatus();
     _fetchLectures();
   }
-  
+
   Future<void> _refreshAddedStatus() async {
-     final custom = await CacheManager().getCustomCourses();
-     if (mounted) {
-        setState(() {
-           _addedIds = custom
-              .where((c) => c.id.startsWith('L_'))
-              .map((c) => c.id.substring(2)) // Remove L_
-              .toSet();
-        });
-     }
+    final custom = await CacheManager().getCustomCourses();
+    if (mounted) {
+      setState(() {
+        _addedIds = custom
+            .where((c) => c.id.startsWith('L_'))
+            .map((c) => c.id.substring(2)) // Remove L_
+            .toSet();
+      });
+    }
   }
 
   Future<void> _loadCache() async {
     await _refreshAddedStatus();
     final cached = await CacheManager().getLectures();
     if (mounted && cached.isNotEmpty) {
-       _processLectures(cached);
+      _processLectures(cached);
     }
   }
 
   void _processLectures(List<Lecture> list) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     final filtered = list.where((l) {
-      if (l.date.isEmpty) return true; 
+      if (l.date.isEmpty) return true;
       final d = DateTime.tryParse(l.date);
       if (d != null) {
         final lectureDate = DateTime(d.year, d.month, d.day);
@@ -64,12 +63,12 @@ class _LecturePageState extends State<LecturePage> {
       }
       return true;
     }).toList();
-    
+
     _sortLectures(filtered);
 
     if (mounted) setState(() => _lectures = filtered);
   }
-  
+
   void _sortLectures(List<Lecture> list) {
     list.sort((a, b) {
       final aAdded = _addedIds.contains(a.id);
@@ -91,16 +90,20 @@ class _LecturePageState extends State<LecturePage> {
       if (settings.username.isEmpty || settings.password.isEmpty) {
         throw Exception('请先在设置中填写账号密码');
       }
-      
+
       // Refresh added status first
       await _refreshAddedStatus();
-      
-      final lectures = await UcasClient().fetchLectures(settings.username, settings.password, captchaCode: captchaCode);
-      
+
+      final lectures = await UcasClient().fetchLectures(
+        settings.username,
+        settings.password,
+        captchaCode: captchaCode,
+      );
+
       // Filter for future lectures
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      
+
       final filtered = lectures.where((l) {
         if (l.date.isEmpty) return true; // Keep if unknown date
         final d = DateTime.tryParse(l.date);
@@ -126,7 +129,11 @@ class _LecturePageState extends State<LecturePage> {
           await _fetchLectures(captchaCode: code);
           return;
         } else {
-           if (mounted) setState(() { _error = '验证码已取消'; });
+          if (mounted) {
+            setState(() {
+              _error = '验证码已取消';
+            });
+          }
         }
       }
     } catch (e) {
@@ -171,10 +178,7 @@ class _LecturePageState extends State<LecturePage> {
           children: [
             Text(_error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _fetchLectures,
-              child: const Text('重试'),
-            ),
+            ElevatedButton(onPressed: _fetchLectures, child: const Text('重试')),
           ],
         ),
       );
@@ -190,9 +194,9 @@ class _LecturePageState extends State<LecturePage> {
       itemBuilder: (context, index) {
         final isAdded = _addedIds.contains(_lectures![index].id);
         return _LectureCard(
-            lecture: _lectures![index], 
-            settings: widget.settings,
-            isAdded: isAdded,
+          lecture: _lectures![index],
+          settings: widget.settings,
+          isAdded: isAdded,
         );
       },
     );
@@ -201,7 +205,7 @@ class _LecturePageState extends State<LecturePage> {
 
 class _LectureCard extends StatelessWidget {
   const _LectureCard({
-    required this.lecture, 
+    required this.lecture,
     required this.settings,
     this.isAdded = false,
   });
@@ -216,17 +220,17 @@ class _LectureCard extends StatelessWidget {
       onTap: () {
         showDialog(
           context: context,
-          builder: (context) => LectureDetailDialog(
-             lecture: lecture,
-             settings: settings,
-          ),
+          builder: (context) =>
+              LectureDetailDialog(lecture: lecture, settings: settings),
         );
       },
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(
-           borderRadius: BorderRadius.circular(12),
-           side: isAdded ? BorderSide(color: Colors.blue.withOpacity(0.5), width: 1.5) : BorderSide.none,
+          borderRadius: BorderRadius.circular(12),
+          side: isAdded
+              ? BorderSide(color: Colors.blue.withOpacity(0.5), width: 1.5)
+              : BorderSide.none,
         ),
         color: isAdded ? Colors.blue.shade50.withOpacity(0.3) : null,
         child: Padding(
@@ -236,38 +240,62 @@ class _LectureCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                   Expanded(
-                     child: Text(
-                      lecture.name, 
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                     ),
-                   ),
-                   if (isAdded) 
-                     Container(
-                       margin: const EdgeInsets.only(left: 8),
-                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                       decoration: BoxDecoration(
-                         color: Colors.blue.shade100,
-                         borderRadius: BorderRadius.circular(8),
-                       ),
-                       child: Text('已添加', style: TextStyle(fontSize: 10, color: Colors.blue.shade800)),
-                     ),
+                  Expanded(
+                    child: Text(
+                      lecture.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  if (isAdded)
+                    Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '已添加',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                   const Icon(Icons.person, size: 16, color: Colors.grey),
-                   const SizedBox(width: 4),
-                   Expanded(child: Text(lecture.speaker, style: const TextStyle(color: Colors.grey), overflow: TextOverflow.ellipsis)),
+                  const Icon(Icons.person, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      lecture.speaker,
+                      style: const TextStyle(color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
               Row(
                 children: [
-                   const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                   const SizedBox(width: 4),
-                   Expanded(child: Text(lecture.time, style: const TextStyle(color: Colors.grey), overflow: TextOverflow.ellipsis)),
+                  const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      lecture.time,
+                      style: const TextStyle(color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
@@ -293,16 +321,25 @@ Future<String?> _showCaptchaDialog(BuildContext context, Uint8List image) {
           Image.memory(image, height: 60, fit: BoxFit.contain),
           const SizedBox(height: 12),
           TextField(
-            controller: codeController, 
-            autofocus: true, 
-            decoration: const InputDecoration(labelText: '验证码', border: OutlineInputBorder()),
+            controller: codeController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: '验证码',
+              border: OutlineInputBorder(),
+            ),
             onSubmitted: (v) => Navigator.pop(context, v.trim()),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-        TextButton(onPressed: () => Navigator.pop(context, codeController.text.trim()), child: const Text('确定')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, codeController.text.trim()),
+          child: const Text('确定'),
+        ),
       ],
     ),
   );

@@ -18,14 +18,14 @@ class Lecture {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'speaker': speaker,
-        'time': time,
-        'location': location,
-        'department': department,
-        'date': date,
-      };
+    'id': id,
+    'name': name,
+    'speaker': speaker,
+    'time': time,
+    'location': location,
+    'department': department,
+    'date': date,
+  };
 
   factory Lecture.fromJson(Map<String, dynamic> json) {
     return Lecture(

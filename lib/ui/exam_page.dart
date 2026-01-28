@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../data/settings_controller.dart';
 import '../data/ucas_client.dart';
@@ -55,34 +54,43 @@ class _ExamPageState extends State<ExamPage> {
       if (settings.username.isEmpty || settings.password.isEmpty) {
         throw Exception('请先在设置中填写账号密码');
       }
-      final exams = await UcasClient().fetchExams(settings.username, settings.password, captchaCode: captchaCode);
-      
+      final exams = await UcasClient().fetchExams(
+        settings.username,
+        settings.password,
+        captchaCode: captchaCode,
+      );
+
       // Sort exams: Future > Past > TBD
       // Within group: Date Ascending
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      
+
       exams.sort((a, b) {
         // Helper to get status
         // 0: Future (Not started or Today)
         // 1: Past (Finished)
         // 2: TBD
-        
+
         int getStatus(Exam e) {
-           if (e.time == '未安排' || e.time == '无考试信息' || e.time == '获取失败' || e.date.isEmpty) return 2;
-           final d = DateTime.tryParse(e.date);
-           if (d == null) return 2;
-           final eDate = DateTime(d.year, d.month, d.day);
-           
-           if (eDate.isBefore(today)) return 1; // Past
-           return 0; // Future (Today is considered Future/Active)
+          if (e.time == '未安排' ||
+              e.time == '无考试信息' ||
+              e.time == '获取失败' ||
+              e.date.isEmpty) {
+            return 2;
+          }
+          final d = DateTime.tryParse(e.date);
+          if (d == null) return 2;
+          final eDate = DateTime(d.year, d.month, d.day);
+
+          if (eDate.isBefore(today)) return 1; // Past
+          return 0; // Future (Today is considered Future/Active)
         }
-        
+
         final statusA = getStatus(a);
         final statusB = getStatus(b);
-        
+
         if (statusA != statusB) return statusA.compareTo(statusB);
-        
+
         // Secondary sort: Date Ascending
         return a.date.compareTo(b.date);
       });
@@ -99,7 +107,11 @@ class _ExamPageState extends State<ExamPage> {
           await _fetchExams(captchaCode: code);
           return;
         } else {
-           if (mounted) setState(() { _error = '验证码已取消'; });
+          if (mounted) {
+            setState(() {
+              _error = '验证码已取消';
+            });
+          }
         }
       }
     } catch (e) {
@@ -168,14 +180,20 @@ class _ExamPageState extends State<ExamPage> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('考试日期'),
-                      subtitle: Text('${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}'),
+                      subtitle: Text(
+                        '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+                      ),
                       trailing: const Icon(Icons.calendar_today),
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: selectedDate,
-                          firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 30),
+                          ),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
                         );
                         if (picked != null) {
                           setDialogState(() => selectedDate = picked);
@@ -246,9 +264,9 @@ class _ExamPageState extends State<ExamPage> {
                 ElevatedButton(
                   onPressed: () {
                     if (courseNameController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('请输入课程名称')),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('请输入课程名称')));
                       return;
                     }
                     Navigator.pop(context, true);
@@ -263,14 +281,18 @@ class _ExamPageState extends State<ExamPage> {
     );
 
     if (result == true) {
-      final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
-      final timeStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}-${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
-      
+      final dateStr =
+          '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+      final timeStr =
+          '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}-${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
+
       final exam = Exam(
         courseName: courseNameController.text.trim(),
         date: dateStr,
         time: timeStr,
-        location: locationController.text.trim().isEmpty ? '未指定' : locationController.text.trim(),
+        location: locationController.text.trim().isEmpty
+            ? '未指定'
+            : locationController.text.trim(),
         seat: seatController.text.trim(),
       );
 
@@ -283,16 +305,18 @@ class _ExamPageState extends State<ExamPage> {
 
   Future<void> _showEditExamDialog(Exam exam) async {
     final courseNameController = TextEditingController(text: exam.courseName);
-    final locationController = TextEditingController(text: exam.location == '未指定' ? '' : exam.location);
+    final locationController = TextEditingController(
+      text: exam.location == '未指定' ? '' : exam.location,
+    );
     final seatController = TextEditingController(text: exam.seat);
-    
+
     // Parse existing date
     DateTime selectedDate = DateTime.now();
     if (exam.date.isNotEmpty) {
       final parsed = DateTime.tryParse(exam.date);
       if (parsed != null) selectedDate = parsed;
     }
-    
+
     // Parse existing time
     TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 11, minute: 0);
@@ -339,7 +363,9 @@ class _ExamPageState extends State<ExamPage> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('考试日期'),
-                      subtitle: Text('${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}'),
+                      subtitle: Text(
+                        '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+                      ),
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
@@ -416,9 +442,9 @@ class _ExamPageState extends State<ExamPage> {
                 ElevatedButton(
                   onPressed: () {
                     if (courseNameController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('请输入课程名称')),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('请输入课程名称')));
                       return;
                     }
                     Navigator.pop(context, true);
@@ -433,20 +459,26 @@ class _ExamPageState extends State<ExamPage> {
     );
 
     if (result == true) {
-      final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
-      final timeStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}-${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
-      
+      final dateStr =
+          '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+      final timeStr =
+          '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}-${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
+
       final newExam = Exam(
         courseName: courseNameController.text.trim(),
         date: dateStr,
         time: timeStr,
-        location: locationController.text.trim().isEmpty ? '未指定' : locationController.text.trim(),
+        location: locationController.text.trim().isEmpty
+            ? '未指定'
+            : locationController.text.trim(),
         seat: seatController.text.trim(),
       );
 
       await CacheManager().updateCustomExam(oldCourseName, oldDate, newExam);
       setState(() {
-        final index = _customExams.indexWhere((e) => e.courseName == oldCourseName && e.date == oldDate);
+        final index = _customExams.indexWhere(
+          (e) => e.courseName == oldCourseName && e.date == oldDate,
+        );
         if (index != -1) {
           _customExams[index] = newExam;
         }
@@ -465,10 +497,7 @@ class _ExamPageState extends State<ExamPage> {
           children: [
             Text(_error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _fetchExams,
-              child: const Text('重试'),
-            ),
+            ElevatedButton(onPressed: _fetchExams, child: const Text('重试')),
           ],
         ),
       );
@@ -476,15 +505,18 @@ class _ExamPageState extends State<ExamPage> {
     if (_allExams.isEmpty) {
       return Center(
         child: Column(
-           mainAxisAlignment: MainAxisAlignment.center,
-           children: [
-             const Text('暂无考试安排'),
-             const SizedBox(height: 16),
-             ElevatedButton(onPressed: _fetchExams, child: const Text('刷新')),
-             const SizedBox(height: 8),
-             TextButton(onPressed: _showAddExamDialog, child: const Text('手动添加')),
-           ]
-        )
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('暂无考试安排'),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: _fetchExams, child: const Text('刷新')),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _showAddExamDialog,
+              child: const Text('手动添加'),
+            ),
+          ],
+        ),
       );
     }
 
@@ -492,16 +524,22 @@ class _ExamPageState extends State<ExamPage> {
     final sortedExams = List<Exam>.from(_allExams);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     sortedExams.sort((a, b) {
       int getStatus(Exam e) {
-        if (e.time == '未安排' || e.time == '无考试信息' || e.time == '获取失败' || e.date.isEmpty) return 2;
+        if (e.time == '未安排' ||
+            e.time == '无考试信息' ||
+            e.time == '获取失败' ||
+            e.date.isEmpty) {
+          return 2;
+        }
         final d = DateTime.tryParse(e.date);
         if (d == null) return 2;
         final eDate = DateTime(d.year, d.month, d.day);
         if (eDate.isBefore(today)) return 1;
         return 0;
       }
+
       final statusA = getStatus(a);
       final statusB = getStatus(b);
       if (statusA != statusB) return statusA.compareTo(statusB);
@@ -514,17 +552,28 @@ class _ExamPageState extends State<ExamPage> {
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final exam = sortedExams[index];
-        final isCustom = _customExams.any((e) => e.courseName == exam.courseName && e.date == exam.date);
+        final isCustom = _customExams.any(
+          (e) => e.courseName == exam.courseName && e.date == exam.date,
+        );
         return _ExamCard(
           exam: exam,
           isCustom: isCustom,
           onEdit: isCustom ? () => _showEditExamDialog(exam) : null,
-          onDelete: isCustom ? () async {
-            await CacheManager().removeCustomExam(exam.courseName, exam.date);
-            setState(() {
-              _customExams.removeWhere((e) => e.courseName == exam.courseName && e.date == exam.date);
-            });
-          } : null,
+          onDelete: isCustom
+              ? () async {
+                  await CacheManager().removeCustomExam(
+                    exam.courseName,
+                    exam.date,
+                  );
+                  setState(() {
+                    _customExams.removeWhere(
+                      (e) =>
+                          e.courseName == exam.courseName &&
+                          e.date == exam.date,
+                    );
+                  });
+                }
+              : null,
         );
       },
     );
@@ -546,8 +595,9 @@ class _ExamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isScheduled = exam.time != '未安排' && exam.time != '无考试信息' && exam.time != '获取失败';
-    
+    final isScheduled =
+        exam.time != '未安排' && exam.time != '无考试信息' && exam.time != '获取失败';
+
     // Determine if finished
     bool isFinished = false;
     if (isScheduled && exam.date.isNotEmpty) {
@@ -555,10 +605,10 @@ class _ExamCard extends StatelessWidget {
       final today = DateTime(now.year, now.month, now.day);
       final d = DateTime.tryParse(exam.date);
       if (d != null) {
-         final examDate = DateTime(d.year, d.month, d.day);
-         if (examDate.isBefore(today)) {
-            isFinished = true;
-         }
+        final examDate = DateTime(d.year, d.month, d.day);
+        if (examDate.isBefore(today)) {
+          isFinished = true;
+        }
       }
     }
 
@@ -566,126 +616,147 @@ class _ExamCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isFinished ? Colors.grey.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isCustom ? const Color(0xFFFF2400).withOpacity(0.3) : Colors.grey.shade200),
+        border: Border.all(
+          color: isCustom
+              ? const Color(0xFFFF2400).withOpacity(0.3)
+              : Colors.grey.shade200,
+        ),
         boxShadow: [
-           BoxShadow(
-             color: Colors.black.withOpacity(0.02),
-             blurRadius: 4,
-             offset: const Offset(0, 2),
-           ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-           Row(
-             crossAxisAlignment: CrossAxisAlignment.start,
-             children: [
-               if (isCustom)
-                 Container(
-                   margin: const EdgeInsets.only(right: 8),
-                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                   decoration: BoxDecoration(
-                     color: const Color(0xFFFF2400).withOpacity(0.1),
-                     borderRadius: BorderRadius.circular(4),
-                   ),
-                   child: const Text(
-                     '手动',
-                     style: TextStyle(fontSize: 10, color: Color(0xFFFF2400), fontWeight: FontWeight.w600),
-                   ),
-                 ),
-               Expanded(
-                 child: Text(
-                   exam.courseName,
-                   style: TextStyle(
-                     fontSize: 16,
-                     fontWeight: FontWeight.bold,
-                     color: isFinished ? Colors.grey : const Color(0xFF1F2A44),
-                   ),
-                 ),
-               ),
-               if (isCustom && onEdit != null)
-                 IconButton(
-                   icon: const Icon(Icons.edit_outlined, size: 20),
-                   color: Colors.blue.shade400,
-                   onPressed: onEdit,
-                   padding: EdgeInsets.zero,
-                   constraints: const BoxConstraints(),
-                 ),
-               if (isCustom && onEdit != null && onDelete != null)
-                 const SizedBox(width: 8),
-               if (isCustom && onDelete != null)
-                 IconButton(
-                   icon: const Icon(Icons.delete_outline, size: 20),
-                   color: Colors.red.shade300,
-                   onPressed: () {
-                     showDialog(
-                       context: context,
-                       builder: (context) => AlertDialog(
-                         title: const Text('删除确认'),
-                         content: Text('确定要删除"${exam.courseName}"的考试吗？'),
-                         actions: [
-                           TextButton(
-                             onPressed: () => Navigator.pop(context),
-                             child: const Text('取消'),
-                           ),
-                           ElevatedButton(
-                             onPressed: () {
-                               Navigator.pop(context);
-                               onDelete?.call();
-                             },
-                             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                             child: const Text('删除'),
-                           ),
-                         ],
-                       ),
-                     );
-                   },
-                   padding: EdgeInsets.zero,
-                   constraints: const BoxConstraints(),
-                 ),
-               if (!isScheduled || isFinished)
-                 Container(
-                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                   decoration: BoxDecoration(
-                     color: Colors.grey.shade100,
-                     borderRadius: BorderRadius.circular(4),
-                   ),
-                   child: Text(
-                     !isScheduled ? (exam.time.isEmpty ? '未安排' : exam.time) : '已结束',
-                     style: TextStyle(
-                       fontSize: 12, 
-                       color: Colors.grey.shade600,
-                     ),
-                   ),
-                 ),
-             ],
-           ),
-           if (isScheduled) ...[
-             const SizedBox(height: 12),
-             const Divider(height: 1),
-             const SizedBox(height: 12),
-             // Date and Time Row
-             Row(
-               children: [
-                 _buildInfoItem(Icons.calendar_today, exam.date, size: 15),
-                 const SizedBox(width: 24),
-                 _buildInfoItem(Icons.access_time, exam.time, size: 15),
-               ],
-             ),
-             const SizedBox(height: 8),
-             // Location and Seat Row
-             Row(
-               children: [
-                 Expanded(child: _buildInfoItem(Icons.location_on, exam.location, size: 15)),
-                 if (exam.seat.isNotEmpty) ...[
-                   const SizedBox(width: 16),
-                   _buildInfoItem(Icons.chair, '${exam.seat}座', size: 15),
-                 ],
-               ],
-             ),
-           ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isCustom)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF2400).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    '手动',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFFFF2400),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: Text(
+                  exam.courseName,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isFinished ? Colors.grey : const Color(0xFF1F2A44),
+                  ),
+                ),
+              ),
+              if (isCustom && onEdit != null)
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  color: Colors.blue.shade400,
+                  onPressed: onEdit,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              if (isCustom && onEdit != null && onDelete != null)
+                const SizedBox(width: 8),
+              if (isCustom && onDelete != null)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  color: Colors.red.shade300,
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('删除确认'),
+                        content: Text('确定要删除"${exam.courseName}"的考试吗？'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('取消'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              onDelete?.call();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            child: const Text('删除'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              if (!isScheduled || isFinished)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    !isScheduled
+                        ? (exam.time.isEmpty ? '未安排' : exam.time)
+                        : '已结束',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ),
+            ],
+          ),
+          if (isScheduled) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            // Date and Time Row
+            Row(
+              children: [
+                _buildInfoItem(Icons.calendar_today, exam.date, size: 15),
+                const SizedBox(width: 24),
+                _buildInfoItem(Icons.access_time, exam.time, size: 15),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Location and Seat Row
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInfoItem(
+                    Icons.location_on,
+                    exam.location,
+                    size: 15,
+                  ),
+                ),
+                if (exam.seat.isNotEmpty) ...[
+                  const SizedBox(width: 16),
+                  _buildInfoItem(Icons.chair, '${exam.seat}座', size: 15),
+                ],
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -710,4 +781,4 @@ class _ExamCard extends StatelessWidget {
   }
 }
 
-  // _showCaptchaDialog removed
+// _showCaptchaDialog removed

@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../data/settings_controller.dart';
 import '../data/ucas_client.dart';
@@ -43,7 +42,11 @@ class _ScorePageState extends State<ScorePage> {
       if (settings.username.isEmpty || settings.password.isEmpty) {
         throw Exception('请先在设置中填写账号密码');
       }
-      final scores = await UcasClient().fetchScores(settings.username, settings.password, captchaCode: captchaCode);
+      final scores = await UcasClient().fetchScores(
+        settings.username,
+        settings.password,
+        captchaCode: captchaCode,
+      );
       setState(() {
         _scores = scores;
       });
@@ -56,7 +59,11 @@ class _ScorePageState extends State<ScorePage> {
           await _fetchScores(captchaCode: code);
           return;
         } else {
-           if (mounted) setState(() { _error = '验证码已取消'; });
+          if (mounted) {
+            setState(() {
+              _error = '验证码已取消';
+            });
+          }
         }
       }
     } catch (e) {
@@ -101,10 +108,7 @@ class _ScorePageState extends State<ScorePage> {
           children: [
             Text(_error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _fetchScores,
-              child: const Text('重试'),
-            ),
+            ElevatedButton(onPressed: _fetchScores, child: const Text('重试')),
           ],
         ),
       );
@@ -132,12 +136,13 @@ class _ScoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPass = score.score == '通过' || 
-                   score.score == '优' || 
-                   score.score == '良' || 
-                   score.score.contains('免修') ||
-                   (double.tryParse(score.score) ?? 60) >= 60;
-    
+    final isPass =
+        score.score == '通过' ||
+        score.score == '优' ||
+        score.score == '良' ||
+        score.score.contains('免修') ||
+        (double.tryParse(score.score) ?? 60) >= 60;
+
     final isDegree = score.isDegree.contains('是');
 
     return Container(
@@ -145,15 +150,17 @@ class _ScoreCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDegree ? Colors.orange.shade200 : Colors.grey.shade200, // Highlight degree courses
+          color: isDegree
+              ? Colors.orange.shade200
+              : Colors.grey.shade200, // Highlight degree courses
           width: isDegree ? 1.5 : 1,
         ),
         boxShadow: [
-           BoxShadow(
-             color: Colors.black.withOpacity(0.02),
-             blurRadius: 4,
-             offset: const Offset(0, 2),
-           ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -194,19 +201,24 @@ class _ScoreCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                   Text(
-                     score.score,
-                     style: TextStyle(
-                       fontSize: 18, 
-                       fontWeight: FontWeight.bold,
-                       color: isPass ? Colors.green.shade700 : Colors.red.shade700,
-                     ),
-                   ),
-                   if (score.evaluation.isNotEmpty)
-                     Text(
-                       score.evaluation,
-                       style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                     ),
+                  Text(
+                    score.score,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isPass
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
+                    ),
+                  ),
+                  if (score.evaluation.isNotEmpty)
+                    Text(
+                      score.evaluation,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -218,11 +230,19 @@ class _ScoreCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildTag('学分: ${score.credit}', Colors.blue.shade50, Colors.blue.shade700),
+              _buildTag(
+                '学分: ${score.credit}',
+                Colors.blue.shade50,
+                Colors.blue.shade700,
+              ),
               if (isDegree)
                 _buildTag('学位课', Colors.orange.shade50, Colors.orange.shade800),
-              
-              _buildTag(score.semester, Colors.grey.shade100, Colors.grey.shade700),
+
+              _buildTag(
+                score.semester,
+                Colors.grey.shade100,
+                Colors.grey.shade700,
+              ),
             ],
           ),
         ],
@@ -244,5 +264,3 @@ class _ScoreCard extends StatelessWidget {
     );
   }
 }
-
-

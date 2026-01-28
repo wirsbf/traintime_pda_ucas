@@ -4,17 +4,21 @@ import 'package:flutter/material.dart';
 /// 1. iOS-style swipe-back gesture (drag from left edge to go back)
 /// 2. Card expansion animation (page scales up from center)
 class SwipeBackPageRoute<T> extends PageRouteBuilder<T> {
-  SwipeBackPageRoute({
-    required this.page,
-    this.enableSwipeBack = true,
-  }) : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return _buildTransition(context, animation, secondaryAnimation, child, enableSwipeBack);
-          },
-          transitionDuration: const Duration(milliseconds: 300),
-          reverseTransitionDuration: const Duration(milliseconds: 250),
-        );
+  SwipeBackPageRoute({required this.page, this.enableSwipeBack = true})
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return _buildTransition(
+            context,
+            animation,
+            secondaryAnimation,
+            child,
+            enableSwipeBack,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+      );
 
   final Widget page;
   final bool enableSwipeBack;
@@ -27,18 +31,20 @@ class SwipeBackPageRoute<T> extends PageRouteBuilder<T> {
     bool enableSwipeBack,
   ) {
     // Card expansion: scale + fade
-    final scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
-      CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-    );
-    final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: animation, curve: Curves.easeOut),
-    );
+    final scaleAnimation = Tween<double>(
+      begin: 0.92,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+    final fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
 
     // Slide animation for swipe back (secondary - when another page is pushed on top)
-    final slideOutAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(-0.3, 0),
-    ).animate(CurvedAnimation(parent: secondaryAnimation, curve: Curves.easeInOut));
+    final slideOutAnimation =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(-0.3, 0)).animate(
+          CurvedAnimation(parent: secondaryAnimation, curve: Curves.easeInOut),
+        );
 
     Widget result = FadeTransition(
       opacity: fadeAnimation,
@@ -76,14 +82,15 @@ class _SwipeBackGestureDetector extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_SwipeBackGestureDetector> createState() => _SwipeBackGestureDetectorState();
+  State<_SwipeBackGestureDetector> createState() =>
+      _SwipeBackGestureDetectorState();
 }
 
 class _SwipeBackGestureDetectorState extends State<_SwipeBackGestureDetector>
     with SingleTickerProviderStateMixin {
   double _currentOffset = 0;
   bool _isDragging = false;
-  
+
   late AnimationController _animController;
 
   static const double _edgeWidth = 40.0;
@@ -127,7 +134,10 @@ class _SwipeBackGestureDetectorState extends State<_SwipeBackGestureDetector>
   void _handleDragUpdate(DragUpdateDetails details) {
     if (!_isDragging) return;
     setState(() {
-      _currentOffset = (_currentOffset + details.delta.dx).clamp(0.0, double.infinity);
+      _currentOffset = (_currentOffset + details.delta.dx).clamp(
+        0.0,
+        double.infinity,
+      );
     });
   }
 
@@ -146,28 +156,28 @@ class _SwipeBackGestureDetectorState extends State<_SwipeBackGestureDetector>
       // Snap back with spring-like animation
       final startOffset = _currentOffset;
       _animController.reset();
-      
+
       _animController.addStatusListener((status) {
         if (status == AnimationStatus.completed && mounted) {
           setState(() => _currentOffset = 0);
         }
       });
-      
+
       // Use a custom tween for smooth snap-back
-      Animation<double> snapBack = Tween<double>(
-        begin: startOffset,
-        end: 0,
-      ).animate(CurvedAnimation(
-        parent: _animController,
-        curve: Curves.easeOutCubic,
-      ));
-      
+      Animation<double> snapBack = Tween<double>(begin: startOffset, end: 0)
+          .animate(
+            CurvedAnimation(
+              parent: _animController,
+              curve: Curves.easeOutCubic,
+            ),
+          );
+
       snapBack.addListener(() {
         if (mounted) {
           setState(() => _currentOffset = snapBack.value);
         }
       });
-      
+
       _animController.forward();
     }
   }
@@ -175,22 +185,19 @@ class _SwipeBackGestureDetectorState extends State<_SwipeBackGestureDetector>
   void _handleDragCancel() {
     if (!_isDragging) return;
     _isDragging = false;
-    
+
     final startOffset = _currentOffset;
-    Animation<double> snapBack = Tween<double>(
-      begin: startOffset,
-      end: 0,
-    ).animate(CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOutCubic,
-    ));
-    
+    Animation<double> snapBack = Tween<double>(begin: startOffset, end: 0)
+        .animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
+
     snapBack.addListener(() {
       if (mounted) {
         setState(() => _currentOffset = snapBack.value);
       }
     });
-    
+
     _animController.forward(from: 0);
   }
 
@@ -198,7 +205,7 @@ class _SwipeBackGestureDetectorState extends State<_SwipeBackGestureDetector>
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final progress = (_currentOffset / screenWidth).clamp(0.0, 1.0);
-    
+
     return GestureDetector(
       onHorizontalDragStart: _handleDragStart,
       onHorizontalDragUpdate: _handleDragUpdate,
@@ -231,16 +238,15 @@ class _SwipeBackGestureDetectorState extends State<_SwipeBackGestureDetector>
 /// Helper extension to easily use the custom route
 extension NavigatorSwipeBack on NavigatorState {
   Future<T?> pushSwipeBack<T>(Widget page, {bool enableSwipeBack = true}) {
-    return push<T>(SwipeBackPageRoute<T>(page: page, enableSwipeBack: enableSwipeBack));
+    return push<T>(
+      SwipeBackPageRoute<T>(page: page, enableSwipeBack: enableSwipeBack),
+    );
   }
 }
 
 /// A simple MaterialPageRoute replacement with swipe back
 class SwipeBackMaterialPageRoute<T> extends MaterialPageRoute<T> {
-  SwipeBackMaterialPageRoute({
-    required super.builder,
-    super.settings,
-  });
+  SwipeBackMaterialPageRoute({required super.builder, super.settings});
 
   @override
   Widget buildTransitions(
@@ -252,7 +258,10 @@ class SwipeBackMaterialPageRoute<T> extends MaterialPageRoute<T> {
     // Use Cupertino-style slide transition for iOS feel
     const begin = Offset(1.0, 0.0);
     const end = Offset.zero;
-    final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: Curves.easeOutCubic));
+    final tween = Tween(
+      begin: begin,
+      end: end,
+    ).chain(CurveTween(curve: Curves.easeOutCubic));
 
     return SlideTransition(
       position: animation.drive(tween),

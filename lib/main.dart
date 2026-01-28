@@ -31,7 +31,7 @@ class UcasScheduleApp extends StatelessWidget {
           },
         ),
       ),
-      home: settings.username.isNotEmpty 
+      home: settings.username.isNotEmpty
           ? HomeShell(settings: settings)
           : LoginPage(settings: settings),
     );

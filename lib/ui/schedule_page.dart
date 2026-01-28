@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../data/settings_controller.dart';
@@ -36,15 +35,18 @@ class _SchedulePageState extends State<SchedulePage> {
     super.initState();
     _selectedWeek = widget.settings.currentWeek();
     widget.settings.addListener(_handleSettingsChange);
-    
+
     // Initialize controllers with saved values
     _usernameController.text = widget.settings.username;
     _passwordController.text = widget.settings.password;
 
-    _pageController = PageController(initialPage: _selectedWeek > 0 ? _selectedWeek - 1 : 0);
+    _pageController = PageController(
+      initialPage: _selectedWeek > 0 ? _selectedWeek - 1 : 0,
+    );
 
     // Auto-refresh if credentials exist
-    if (widget.settings.username.isNotEmpty && widget.settings.password.isNotEmpty) {
+    if (widget.settings.username.isNotEmpty &&
+        widget.settings.password.isNotEmpty) {
       _fetchSchedule();
     }
   }
@@ -68,7 +70,8 @@ class _SchedulePageState extends State<SchedulePage> {
       }
     }
     // Update PageController if _selectedWeek changes due to settings
-    if (_pageController.hasClients && _pageController.page?.round() != _selectedWeek - 1) {
+    if (_pageController.hasClients &&
+        _pageController.page?.round() != _selectedWeek - 1) {
       _pageController.jumpToPage(_selectedWeek - 1);
     }
   }
@@ -119,7 +122,9 @@ class _SchedulePageState extends State<SchedulePage> {
               onPressed: () {
                 if (formKey.currentState?.validate() ?? false) {
                   // Save credentials to settings
-                  widget.settings.updateUsername(_usernameController.text.trim());
+                  widget.settings.updateUsername(
+                    _usernameController.text.trim(),
+                  );
                   widget.settings.updatePassword(_passwordController.text);
                   Navigator.of(context).pop(true);
                 }
@@ -144,22 +149,29 @@ class _SchedulePageState extends State<SchedulePage> {
       _loading = true;
       _status = '正在获取课程表...';
     });
-    
+
     try {
       // 1. Fetch Schedule
-      final schedule = await UcasClient().fetchSchedule(widget.settings.username, widget.settings.password, captchaCode: captchaCode);
+      final schedule = await UcasClient().fetchSchedule(
+        widget.settings.username,
+        widget.settings.password,
+        captchaCode: captchaCode,
+      );
       if (mounted) {
         setState(() => _schedule = schedule);
         CacheManager().saveSchedule(schedule);
       }
-      
+
       // 2. Fetch Exams (Optional but good to refresh)
       try {
-         final exams = await UcasClient().fetchExams(widget.settings.username, widget.settings.password);
-         CacheManager().saveExams(exams);
-         if (mounted) setState(() => _exams = exams);
+        final exams = await UcasClient().fetchExams(
+          widget.settings.username,
+          widget.settings.password,
+        );
+        CacheManager().saveExams(exams);
+        if (mounted) setState(() => _exams = exams);
       } catch (_) {}
-      
+
       // 3. Refresh Custom (if needed)
       final custom = await CacheManager().getCustomCourses();
       final customExams = await CacheManager().getCustomExams();
@@ -178,7 +190,7 @@ class _SchedulePageState extends State<SchedulePage> {
           _fetchSchedule(captchaCode: code);
           return;
         } else {
-           setState(() => _status = '验证码已取消');
+          setState(() => _status = '验证码已取消');
         }
       }
     } catch (e) {
@@ -200,7 +212,7 @@ class _SchedulePageState extends State<SchedulePage> {
         title: BouncingButton(
           onTap: () {
             if (_pageController.hasClients) {
-               _pageController.jumpToPage(currentWeek - 1);
+              _pageController.jumpToPage(currentWeek - 1);
             }
           },
           child: Column(
@@ -218,17 +230,17 @@ class _SchedulePageState extends State<SchedulePage> {
           ),
         ),
         actions: [
-           IconButton(
-              icon: _loading 
+          IconButton(
+            icon: _loading
                 ? const SizedBox(
-                    width: 20, 
-                    height: 20, 
-                    child: CircularProgressIndicator(strokeWidth: 2)
-                  ) 
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.sync),
-              onPressed: _loading ? null : _showLoginDialog,
-              tooltip: '拉取课表',
-           ),
+            onPressed: _loading ? null : _showLoginDialog,
+            tooltip: '拉取课表',
+          ),
         ],
       ),
       body: Column(
@@ -246,21 +258,30 @@ class _SchedulePageState extends State<SchedulePage> {
               },
               itemBuilder: (context, index) {
                 final week = index + 1;
-                final startOfWeek = widget.settings.termStartDate
-                    .add(Duration(days: (week - 1) * 7));
-                    
+                final startOfWeek = widget.settings.termStartDate.add(
+                  Duration(days: (week - 1) * 7),
+                );
+
                 final allCourses = <Course>[];
                 if (_schedule != null) allCourses.addAll(_schedule!.courses);
                 if (_exams != null) {
-                   for (final e in _exams!) {
-                      final c = examToCourse(e, widget.settings.termStartDate, widget.settings.weekOffset);
-                      if (c != null) allCourses.add(c);
-                   }
+                  for (final e in _exams!) {
+                    final c = examToCourse(
+                      e,
+                      widget.settings.termStartDate,
+                      widget.settings.weekOffset,
+                    );
+                    if (c != null) allCourses.add(c);
+                  }
                 }
                 // Add custom exams
                 for (final e in _customExams) {
-                   final c = examToCourse(e, widget.settings.termStartDate, widget.settings.weekOffset);
-                   if (c != null) allCourses.add(c);
+                  final c = examToCourse(
+                    e,
+                    widget.settings.termStartDate,
+                    widget.settings.weekOffset,
+                  );
+                  if (c != null) allCourses.add(c);
                 }
                 allCourses.addAll(_customCourses);
 
@@ -269,7 +290,10 @@ class _SchedulePageState extends State<SchedulePage> {
                     .toList();
 
                 return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.85),
@@ -283,7 +307,9 @@ class _SchedulePageState extends State<SchedulePage> {
                             children: [
                               Text(
                                 week == currentWeek ? '本周暂无课程' : '第$week周暂无课程',
-                                style: const TextStyle(color: Color(0xFF94A3B8)),
+                                style: const TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                ),
                               ),
                               if (_schedule == null)
                                 TextButton(
@@ -296,7 +322,8 @@ class _SchedulePageState extends State<SchedulePage> {
                       : ScheduleGrid(
                           courses: filteredCourses,
                           startOfWeek: startOfWeek,
-                          onCourseTap: (course) => _showCourseDetailDialog(course),
+                          onCourseTap: (course) =>
+                              _showCourseDetailDialog(course),
                         ),
                 );
               },
@@ -306,10 +333,11 @@ class _SchedulePageState extends State<SchedulePage> {
       ),
     );
   }
+
   void _showCourseDetailDialog(Course course) {
     // Check if it's a custom course (Lecture)
     final isCustom = course.id.startsWith('L_');
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -319,10 +347,12 @@ class _SchedulePageState extends State<SchedulePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('教室: ${course.classroom}'),
-             if (course.teacher.isNotEmpty) Text('教师: ${course.teacher}'),
-            Text('时间: ${course.weekday} ${course.timeSlot.startTime}-${course.timeSlot.endTime}'),
+            if (course.teacher.isNotEmpty) Text('教师: ${course.teacher}'),
+            Text(
+              '时间: ${course.weekday} ${course.timeSlot.startTime}-${course.timeSlot.endTime}',
+            ),
             if (course.weeks.isNotEmpty) Text('周次: ${course.weeks}'),
-             if (course.notes.isNotEmpty) Text('备注: ${course.notes}'),
+            if (course.notes.isNotEmpty) Text('备注: ${course.notes}'),
           ],
         ),
         actions: [
@@ -330,12 +360,12 @@ class _SchedulePageState extends State<SchedulePage> {
             TextButton(
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               onPressed: () async {
-                 await CacheManager().removeCustomCourse(course.id);
-                 if (mounted) {
-                    Navigator.pop(context); // Close dialog
-                    _fetchSchedule(); // Refresh
-                 }
-              }, 
+                await CacheManager().removeCustomCourse(course.id);
+                if (mounted) {
+                  Navigator.pop(context); // Close dialog
+                  _fetchSchedule(); // Refresh
+                }
+              },
               child: const Text('从课表中删除'),
             ),
           TextButton(
@@ -355,7 +385,10 @@ class _StatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (status == null || status!.trim().isEmpty || status!.contains('已拉取') || status!.contains('正在')) {
+    if (status == null ||
+        status!.trim().isEmpty ||
+        status!.contains('已拉取') ||
+        status!.contains('正在')) {
       return const SizedBox.shrink();
     }
     return Container(
@@ -375,6 +408,5 @@ class _StatusBanner extends StatelessWidget {
     );
   }
 }
-
 
 // Local methods removed, using schedule_utils.dart logic

@@ -28,7 +28,7 @@ class _LoginPageState extends State<LoginPage> {
       _usernameController.text = widget.settings.username;
       // If pre-filled text contains @, hide suffix
       if (widget.settings.username.contains('@')) {
-         _emailSuffix = null;
+        _emailSuffix = null;
       }
     }
   }
@@ -61,7 +61,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       await UcasClient().login(username, password, captchaCode: captchaCode);
-      
+
       // Save credentials (full email)
       widget.settings.updateUsername(username);
       widget.settings.updatePassword(password);
@@ -69,29 +69,31 @@ class _LoginPageState extends State<LoginPage> {
       // Navigate to Home
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => HomeShell(settings: widget.settings)),
+          MaterialPageRoute(
+            builder: (_) => HomeShell(settings: widget.settings),
+          ),
         );
       }
     } on CaptchaRequiredException catch (e) {
       if (mounted) {
         final code = await showCaptchaDialog(context, e.image);
         if (code != null) {
-           // Retry with the (possibly processed) username
-           // Wait, recursive call uses _usernameController again? 
-           // If I recursively call _login(captchaCode: code), it re-reads text.
-           // That's fine, logic repeats.
-           _login(captchaCode: code);
-           return;
+          // Retry with the (possibly processed) username
+          // Wait, recursive call uses _usernameController again?
+          // If I recursively call _login(captchaCode: code), it re-reads text.
+          // That's fine, logic repeats.
+          _login(captchaCode: code);
+          return;
         } else {
-           setState(() => _error = '验证码取消');
+          setState(() => _error = '验证码取消');
         }
       }
     } on AuthException catch (e) {
-       setState(() => _error = e.message);
+      setState(() => _error = e.message);
     } catch (e) {
-       setState(() => _error = '登录失败: $e');
+      setState(() => _error = '登录失败: $e');
     } finally {
-       if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -114,7 +116,11 @@ class _LoginPageState extends State<LoginPage> {
                     color: Colors.indigo.shade50,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.school, size: 60, color: Colors.indigo.shade600),
+                  child: Icon(
+                    Icons.school,
+                    size: 60,
+                    color: Colors.indigo.shade600,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -140,9 +146,11 @@ class _LoginPageState extends State<LoginPage> {
               TextField(
                 controller: _usernameController,
                 onChanged: (value) {
-                   setState(() {
-                      _emailSuffix = value.contains('@') ? null : '@mails.ucas.ac.cn';
-                   });
+                  setState(() {
+                    _emailSuffix = value.contains('@')
+                        ? null
+                        : '@mails.ucas.ac.cn';
+                  });
                 },
                 decoration: InputDecoration(
                   labelText: '邮箱 / 账号',
@@ -172,8 +180,13 @@ class _LoginPageState extends State<LoginPage> {
                   labelText: '密码',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -188,7 +201,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 onSubmitted: (_) => _login(),
               ),
-              
+
               if (_error != null) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -200,9 +213,18 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   child: Row(
                     children: [
-                       Icon(Icons.error_outline, size: 20, color: Colors.red.shade700),
-                       const SizedBox(width: 8),
-                       Expanded(child: Text(_error!, style: TextStyle(color: Colors.red.shade700))),
+                      Icon(
+                        Icons.error_outline,
+                        size: 20,
+                        color: Colors.red.shade700,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: TextStyle(color: Colors.red.shade700),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -216,7 +238,9 @@ class _LoginPageState extends State<LoginPage> {
                 child: Container(
                   height: 56,
                   decoration: BoxDecoration(
-                    color: _loading ? Colors.indigo.shade300 : const Color(0xFF4F46E5),
+                    color: _loading
+                        ? Colors.indigo.shade300
+                        : const Color(0xFF4F46E5),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -227,10 +251,14 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                   alignment: Alignment.center,
-                  child: _loading 
+                  child: _loading
                       ? const SizedBox(
-                          width: 24, height: 24, 
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text(
                           '登录',
@@ -242,14 +270,14 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                 ),
               ),
-              
+
               const SizedBox(height: 24),
               const Center(
-                 child: Text(
-                   'Technical Support: Traintime PDA Group',
-                   style: TextStyle(fontSize: 10, color: Colors.grey),
-                 ),
-              )
+                child: Text(
+                  'Technical Support: Traintime PDA Group',
+                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ),
             ],
           ),
         ),

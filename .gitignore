@@ -11,27 +11,61 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
-
+target/
 # IntelliJ related
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code
+.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
 
 # Flutter/Dart/Pub related
 **/doc/api/
-**/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 /build/
 /coverage/
+
+# Android related
+**/android/**/gradle-wrapper.jar
+**/android/.gradle
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/key.properties
+**/android/**/GeneratedPluginRegistrant.java
+
+# iOS/macOS related
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/gen_snapshot
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/macos/Flutter/ephemeral/
+
+# Windows related
+**/windows/flutter/ephemeral/
+*.dll
+*.exe
+*.lib
+# Exception: Don't ignore DLLs if they are checked-in 3rd party libs (uncomment if needed)
+# !windows/runner/third_party_dll.dll
+
+# Linux related
+**/linux/flutter/ephemeral/
+
+# Web related
+lib/generated_plugin_registrant.dart
 
 # Symbolication related
 app.*.symbols
@@ -39,12 +73,19 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Rust related
+rust/target/
+**/*.rs.bk
+# Keep Cargo.lock for reproducible builds
+# Cargo.lock
 
-# User specified ignores
+# Temporary/User-specific files
 test/
 *.html
 *.htm
+*.tmp
+tmp/
+
+# Custom Assets/Models (if downloaded)
+assets/*.onnx
+assets/*.tflite

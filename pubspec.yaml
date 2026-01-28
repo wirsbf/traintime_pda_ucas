@@ -47,7 +47,14 @@ dependencies:
   talker: ^4.2.0
   talker_flutter: ^4.2.0
 
+  path_provider: ^2.1.5
+  image: ^4.7.2
 
+  provider: ^6.1.5+1
+  ffi: ^2.1.0
+
+
+  webview_flutter_android: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -58,6 +65,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -71,8 +80,9 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  # To add assets to your application, add an assets section, like this:
+  assets:
+
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

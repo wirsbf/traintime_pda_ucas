@@ -8,12 +8,12 @@ class Exam {
   });
 
   Map<String, dynamic> toJson() => {
-        'courseName': courseName,
-        'date': date,
-        'time': time,
-        'location': location,
-        'seat': seat,
-      };
+    'courseName': courseName,
+    'date': date,
+    'time': time,
+    'location': location,
+    'seat': seat,
+  };
 
   factory Exam.fromJson(Map<String, dynamic> json) {
     return Exam(

@@ -20,15 +20,15 @@ class Score {
   });
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'englishName': englishName,
-        'score': score,
-        'credit': credit,
-        'isDegree': isDegree,
-        'semester': semester,
-        'type': type,
-        'evaluation': evaluation,
-      };
+    'name': name,
+    'englishName': englishName,
+    'score': score,
+    'credit': credit,
+    'isDegree': isDegree,
+    'semester': semester,
+    'type': type,
+    'evaluation': evaluation,
+  };
 
   factory Score.fromJson(Map<String, dynamic> json) {
     return Score(

@@ -28,7 +28,6 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
-
 class _LecturePageResult {
   final List<Lecture> lectures;
   final int? nextPageNum;
@@ -37,16 +36,18 @@ class _LecturePageResult {
 
 class UcasClient {
   UcasClient({Dio? dio})
-    : _dio = dio ?? Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 12),
-          receiveTimeout: const Duration(seconds: 12),
-          headers: {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          },
-        ),
-      ) {
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 12),
+              receiveTimeout: const Duration(seconds: 12),
+              headers: {
+                'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              },
+            ),
+          ) {
     if (dio == null) {
       _dio.interceptors.add(CookieManager(_cookieJar));
       final adapter = _dio.httpClientAdapter;
@@ -65,7 +66,7 @@ class UcasClient {
   final Dio _dio;
   static final CookieJar _cookieJar = CookieJar();
   static bool _isAuthenticated = false;
-  
+
   static Future<List<Cookie>> getCookies(String url) async {
     return _cookieJar.loadForRequest(Uri.parse(url));
   }
@@ -73,12 +74,21 @@ class UcasClient {
   static const String _sepBase = 'https://sep.ucas.ac.cn';
   static const String _xkgodjBase = 'https://xkgodj.ucas.ac.cn';
   static const String _jwxkBase = 'https://jwxk.ucas.ac.cn';
+  static const String _xkgoBase = 'https://xkgo.ucas.ac.cn:3000';
 
-  Future<void> login(String username, String password, {String? captchaCode}) async {
+  Future<void> login(
+    String username,
+    String password, {
+    String? captchaCode,
+  }) async {
     await _sepLogin(username, password, captchaCode: captchaCode);
   }
 
-  Future<Schedule> fetchSchedule(String username, String password, {String? captchaCode}) async {
+  Future<Schedule> fetchSchedule(
+    String username,
+    String password, {
+    String? captchaCode,
+  }) async {
     await _sepLogin(username, password, captchaCode: captchaCode);
     final scheduleHtml = await _fetchScheduleHtml();
     final entries = _parseScheduleTable(scheduleHtml);
@@ -89,19 +99,25 @@ class UcasClient {
     return _buildSchedule(entries, details);
   }
 
-  Future<List<Score>> fetchScores(String username, String password, {String? captchaCode}) async {
-    final effectiveUsername = username.contains('@') ? username : '$username@mails.ucas.ac.cn';
+  Future<List<Score>> fetchScores(
+    String username,
+    String password, {
+    String? captchaCode,
+  }) async {
+    final effectiveUsername = username.contains('@')
+        ? username
+        : '$username@mails.ucas.ac.cn';
     await _sepLogin(effectiveUsername, password, captchaCode: captchaCode);
-    
+
     // Use the same JWXK login method as fetchExams
-    
+
     final menuHtml = await _getText('$_sepBase/businessMenu');
     final portalUrl = _findPortalLink(menuHtml);
-    
+
     if (portalUrl == null) {
       return [];
     }
-    
+
     final portalResponse = await _dio.get<String>(
       portalUrl,
       options: Options(
@@ -110,7 +126,7 @@ class UcasClient {
         validateStatus: (status) => status != null && status < 500,
       ),
     );
-    
+
     String? redirectUrl;
     if (portalResponse.statusCode != null &&
         portalResponse.statusCode! >= 300 &&
@@ -119,45 +135,46 @@ class UcasClient {
     } else {
       redirectUrl = _extractRedirectUrl(portalResponse.data ?? '');
     }
-    
+
     if (redirectUrl == null) {
       return [];
     }
-    
+
     final identityMatch = RegExp(r'Identity=([^&]+)').firstMatch(redirectUrl);
     if (identityMatch == null) {
       return [];
     }
-    
+
     final identity = identityMatch.group(1)!;
-    
+
     // Build JWXK login URL for score page
     final targetPath = '/score/yjs/all';
     final encodedToUrl = _encodeToUrl(targetPath);
-    
-    final jwxkLoginUrl = '$_jwxkBase/login?Identity=$identity&roleId=xs&fromUrl=1&toUrl=$encodedToUrl';
-    
+
+    final jwxkLoginUrl =
+        '$_jwxkBase/login?Identity=$identity&roleId=xs&fromUrl=1&toUrl=$encodedToUrl';
+
     // Follow the login URL (this may redirect to notice page)
     final loginResponse = await _getFollow(jwxkLoginUrl);
-    
+
     // Always navigate to score page after login
     final scoreResponse = await _getFollow('$_jwxkBase/score/yjs/all');
-    
+
     final content = scoreResponse.data ?? '';
-    
+
     // Check if we got the actual score page (should have table with score data)
     // Look for typical score page indicators
-    if (content.contains('课程成绩') || content.contains('学分') || 
+    if (content.contains('课程成绩') ||
+        content.contains('学分') ||
         (content.contains('成绩') && content.contains('table'))) {
-    } else {
-    }
-    
+    } else {}
+
     final scores = _parseScores(content);
-    
+
     // Debug: show first 500 chars of content if no scores found or names look wrong
-    if (scores.isEmpty || (scores.isNotEmpty && scores.first.name.contains('教务部'))) {
-    }
-    
+    if (scores.isEmpty ||
+        (scores.isNotEmpty && scores.first.name.contains('教务部'))) {}
+
     return scores;
   }
 
@@ -165,26 +182,67 @@ class UcasClient {
   // Plaintext: /courseManage/selectedCourse
   // This key is used to encode the toUrl parameter for JWXK login
   static const List<int> _jwxkXorKey = [
-    0xa8, 0xda, 0x0d, 0x67, 0x2e, 0xc1, 0xb5, 0x8b, 
-    0xe5, 0x88, 0x7a, 0xfa, 0xc3, 0xfd, 0x5b, 0xe5, 
-    0xdb, 0xde, 0x76, 0xbd, 0xc9, 0xcd, 0xd7, 0x0b, 
-    0x89, 0x6f, 0x7e, 0x13, 0x64, 0x48, 0x62, 0x75,
-    0xf5, 0xe2, 0xd1, 0x50, 0x41, 0x0c, 0xb0, 0xaa,
+    0xa8,
+    0xda,
+    0x0d,
+    0x67,
+    0x2e,
+    0xc1,
+    0xb5,
+    0x8b,
+    0xe5,
+    0x88,
+    0x7a,
+    0xfa,
+    0xc3,
+    0xfd,
+    0x5b,
+    0xe5,
+    0xdb,
+    0xde,
+    0x76,
+    0xbd,
+    0xc9,
+    0xcd,
+    0xd7,
+    0x0b,
+    0x89,
+    0x6f,
+    0x7e,
+    0x13,
+    0x64,
+    0x48,
+    0x62,
+    0x75,
+    0xf5,
+    0xe2,
+    0xd1,
+    0x50,
+    0x41,
+    0x0c,
+    0xb0,
+    0xaa,
   ];
-  
+
   String _encodeToUrl(String path) {
     final bytes = path.codeUnits;
     final encoded = <int>[];
     for (int i = 0; i < bytes.length; i++) {
       encoded.add(bytes[i] ^ _jwxkXorKey[i % _jwxkXorKey.length]);
     }
-    return encoded.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join('');
+    return encoded
+        .map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase())
+        .join('');
   }
 
-  Future<void> _jwxkLogin(String username, String password, {String? toUrl}) async {
+  Future<void> _jwxkLogin(
+    String username,
+    String password, {
+    String? toUrl,
+  }) async {
     // Ensure SEP login
     await _sepLogin(username, password);
-    
+
     final identity = await _getPortalIdentity();
     if (identity == null) {
       throw Exception('无法获取Identity');
@@ -192,129 +250,138 @@ class UcasClient {
 
     final targetUrl = toUrl ?? '/subject/lecture';
     final encodedToUrl = _encodeToUrl(targetUrl);
-    final jwxkLoginUrl = '$_jwxkBase/login?Identity=$identity&roleId=xs&fromUrl=1&toUrl=$encodedToUrl';
-    
+    final jwxkLoginUrl =
+        '$_jwxkBase/login?Identity=$identity&roleId=xs&fromUrl=1&toUrl=$encodedToUrl';
+
     await _getFollow(jwxkLoginUrl);
   }
 
-  Future<List<Lecture>> fetchLectures(String username, String password, {String? captchaCode}) async {
-    final effectiveUsername = username.contains('@') ? username : '$username@mails.ucas.ac.cn';
+  Future<List<Lecture>> fetchLectures(
+    String username,
+    String password, {
+    String? captchaCode,
+  }) async {
+    final effectiveUsername = username.contains('@')
+        ? username
+        : '$username@mails.ucas.ac.cn';
     // Use new helper
     await _jwxkLogin(effectiveUsername, password, toUrl: '/subject/lecture');
-    
+
     // Explicitly navigate to lecture page (Page 1 via GET)
     // JWXK often redirects to Notice page after login regardless of toUrl
     // Page 1
     final response = await _getFollow('$_jwxkBase/subject/lecture');
     final allLectures = <Lecture>[];
-    
+
     // Parse Page 1
     final result = _parseLecturesPage(response.data ?? '');
     allLectures.addAll(result.lectures);
-    
+
     int? nextPage = result.nextPageNum;
-    
+
     // Safety limit to prevent infinite loops (e.g. 10 pages)
     // Loop for subsequent pages
     for (int p = 0; p < 10; p++) {
-       if (nextPage == null) break;
-       
-       // Optimization: Date check (Stop if last lecture < Today)
-       // We can check the last lecture of the current batch (from previous iteration or initial page)
-       // BUT the 'result' variable is from the previous page.
-       if (allLectures.isNotEmpty) {
-          final last = allLectures.last; 
-          if (last.date.isNotEmpty) {
-             try {
-               final lastDate = DateTime.parse(last.date);
-               // If last lecture of *previous* page is older than today, stop.
-               // (Assuming descending order, but usually they are mixed or ascending? 
-               // actually lecture lists are often descending by date. 
-               // If they are descending, finding an old one means we can stop.
-               // If they are ascending, we must continue.
-               // Let's assume standard "Latest first" or check logic.)
-               // Wait, the user requirement is "fetch current date and future".
-               // The HTML shows dates like 2026-01-06, 2026-01-05. It seems descending.
-               // So if we hit a date < today, we can stop.
-               
-               final now = DateTime.now();
-               final today = DateTime(now.year, now.month, now.day);
-               
-               if (lastDate.isBefore(today)) {
-                  break;
-               }
-             } catch (_) {}
-          }
-       }
+      if (nextPage == null) break;
 
-       // Fetch Next Page via POST
-       final postResponse = await _dio.post<String>(
-          '$_jwxkBase/subject/lecture',
-          data: {'pageNum': nextPage.toString()},
-          options: Options(
-            contentType: Headers.formUrlEncodedContentType,
-            responseType: ResponseType.plain,
-            headers: {'Referer': '$_jwxkBase/subject/lecture'},
-            validateStatus: (status) => status != null && status < 500,
-          )
-       );
-       
-       final nextHtml = postResponse.data ?? '';
-       final nextResult = _parseLecturesPage(nextHtml);
-       
-       if (nextResult.lectures.isEmpty) {
-         break; 
-       }
-       
-       allLectures.addAll(nextResult.lectures);
-       nextPage = nextResult.nextPageNum;
+      // Optimization: Date check (Stop if last lecture < Today)
+      // We can check the last lecture of the current batch (from previous iteration or initial page)
+      // BUT the 'result' variable is from the previous page.
+      if (allLectures.isNotEmpty) {
+        final last = allLectures.last;
+        if (last.date.isNotEmpty) {
+          try {
+            final lastDate = DateTime.parse(last.date);
+            // If last lecture of *previous* page is older than today, stop.
+            // (Assuming descending order, but usually they are mixed or ascending?
+            // actually lecture lists are often descending by date.
+            // If they are descending, finding an old one means we can stop.
+            // If they are ascending, we must continue.
+            // Let's assume standard "Latest first" or check logic.)
+            // Wait, the user requirement is "fetch current date and future".
+            // The HTML shows dates like 2026-01-06, 2026-01-05. It seems descending.
+            // So if we hit a date < today, we can stop.
+
+            final now = DateTime.now();
+            final today = DateTime(now.year, now.month, now.day);
+
+            if (lastDate.isBefore(today)) {
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+
+      // Fetch Next Page via POST
+      final postResponse = await _dio.post<String>(
+        '$_jwxkBase/subject/lecture',
+        data: {'pageNum': nextPage.toString()},
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.plain,
+          headers: {'Referer': '$_jwxkBase/subject/lecture'},
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      final nextHtml = postResponse.data ?? '';
+      final nextResult = _parseLecturesPage(nextHtml);
+
+      if (nextResult.lectures.isEmpty) {
+        break;
+      }
+
+      allLectures.addAll(nextResult.lectures);
+      nextPage = nextResult.nextPageNum;
     }
 
     // Filter: User said "after current date".
     // We interpret as ">= Today".
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     return allLectures.where((l) {
-        if (l.date.isEmpty) return true; // Keep if no date
-        try {
-           final d = DateTime.parse(l.date);
-           return !d.isBefore(today); // >= Today
-        } catch (_) {
-           return true; 
-        }
+      if (l.date.isEmpty) return true; // Keep if no date
+      try {
+        final d = DateTime.parse(l.date);
+        return !d.isBefore(today); // >= Today
+      } catch (_) {
+        return true;
+      }
     }).toList();
   }
 
-  Future<Map<String, String>> fetchLectureDetail(String path, {String? username, String? password}) async {
+  Future<Map<String, String>> fetchLectureDetail(
+    String path, {
+    String? username,
+    String? password,
+  }) async {
     // path is the relative URL from Lecture.id (e.g. /subject/lecture/123)
     try {
       Response<String> response = await _getFollow(
         '$_jwxkBase$path',
-        options: Options(
-          headers: {'Referer': '$_jwxkBase/subject/lecture'},
-        ),
+        options: Options(headers: {'Referer': '$_jwxkBase/subject/lecture'}),
       );
-      
+
       String html = response.data ?? '';
-      
+
       // Check if session invalid
       bool sessionInvalid = html.contains('Identity') || html.contains('login');
       // If we have login indicators and credentials, try to login and retry
       if (sessionInvalid && username != null && password != null) {
-          try {
-             await _jwxkLogin(username, password, toUrl: path);
-             // Retry fetch
-             response = await _getFollow(
-                '$_jwxkBase$path',
-                options: Options(
-                  headers: {'Referer': '$_jwxkBase/subject/lecture'},
-                ),
-             );
-             html = response.data ?? '';
-          } catch (_) {
-             // Login failed, just use original html (will likely fail parse)
-          }
+        try {
+          await _jwxkLogin(username, password, toUrl: path);
+          // Retry fetch
+          response = await _getFollow(
+            '$_jwxkBase$path',
+            options: Options(
+              headers: {'Referer': '$_jwxkBase/subject/lecture'},
+            ),
+          );
+          html = response.data ?? '';
+        } catch (_) {
+          // Login failed, just use original html (will likely fail parse)
+        }
       }
 
       return parseLectureDetailHtml(html);
@@ -325,92 +392,103 @@ class UcasClient {
   }
 
   Map<String, String> parseLectureDetailHtml(String html) {
-      final doc = html_parser.parse(html);
-      final result = <String, String>{};
-      String content = '';
-      
-      // Strategy: Look for the table with lecture details
-      // The structure is usually inside <div id="existsfiles"> <table> ...
-      final table = doc.querySelector('#existsfiles table');
-      if (table != null) {
-         final rows = table.querySelectorAll('tr');
-         bool nextIsContent = false;
-         for (final row in rows) {
-            final text = row.text.trim();
-            if (nextIsContent) {
-               content = text;
-               break; // Assuming content is the last thing we want or it occupies the rest
-               // Actually content works better if we just capture it.
-               // But let's check for location first if we haven't found content yet.
-            }
-            
-            // Regex to extract Main Location: look for "地点" or "主会场" until "分会场" or End.
-            if (text.contains('主要地点') || text.contains('讲座地点') || text.contains('主会场地点')) {
-               // Match: Label + Colon + (Content) + [lookahead for branch or end]
-               final mainMatch = RegExp(r'(主要地点|讲座地点|主会场地点)[:：]\s*(.*?)(?=\s*(分会场|$))').firstMatch(text);
-               if (mainMatch != null && mainMatch.groupCount >= 2) {
-                  result['main_location'] = mainMatch.group(2)!.trim();
-               }
-            }
-            
-            // Regex to extract Branch Location: look for "分会场" until End.
-            if (text.contains('分会场地点') || text.contains('分会场')) {
-               final branchMatch = RegExp(r'(分会场地点|分会场)[:：]\s*(.*)').firstMatch(text);
-               if (branchMatch != null && branchMatch.groupCount >= 2) {
-                  result['branch_location'] = branchMatch.group(2)!.trim();
-               }
-            }
+    final doc = html_parser.parse(html);
+    final result = <String, String>{};
+    String content = '';
 
-            if (text.contains('讲座介绍') || text.contains('内容简介')) {
-               nextIsContent = true;
-            }
-         }
-      } 
-      
-      // Fallback strategies
-      if (content.isEmpty) {
-        var container = doc.querySelector('.article-content') 
-                   ?? doc.querySelector('.content')
-                   ?? doc.querySelector('#content')
-                   ?? doc.querySelector('.detail_content');
-                   
-        if (container != null) {
-          content = container.text.trim();
+    // Strategy: Look for the table with lecture details
+    // The structure is usually inside <div id="existsfiles"> <table> ...
+    final table = doc.querySelector('#existsfiles table');
+    if (table != null) {
+      final rows = table.querySelectorAll('tr');
+      bool nextIsContent = false;
+      for (final row in rows) {
+        final text = row.text.trim();
+        if (nextIsContent) {
+          content = text;
+          break; // Assuming content is the last thing we want or it occupies the rest
+          // Actually content works better if we just capture it.
+          // But let's check for location first if we haven't found content yet.
+        }
+
+        // Regex to extract Main Location: look for "地点" or "主会场" until "分会场" or End.
+        if (text.contains('主要地点') ||
+            text.contains('讲座地点') ||
+            text.contains('主会场地点')) {
+          // Match: Label + Colon + (Content) + [lookahead for branch or end]
+          final mainMatch = RegExp(
+            r'(主要地点|讲座地点|主会场地点)[:：]\s*(.*?)(?=\s*(分会场|$))',
+          ).firstMatch(text);
+          if (mainMatch != null && mainMatch.groupCount >= 2) {
+            result['main_location'] = mainMatch.group(2)!.trim();
+          }
+        }
+
+        // Regex to extract Branch Location: look for "分会场" until End.
+        if (text.contains('分会场地点') || text.contains('分会场')) {
+          final branchMatch = RegExp(
+            r'(分会场地点|分会场)[:：]\s*(.*)',
+          ).firstMatch(text);
+          if (branchMatch != null && branchMatch.groupCount >= 2) {
+            result['branch_location'] = branchMatch.group(2)!.trim();
+          }
+        }
+
+        if (text.contains('讲座介绍') || text.contains('内容简介')) {
+          nextIsContent = true;
         }
       }
-      
-      if (content.isEmpty) {
-         // Fallback cleaning
-         final Body = doc.body;
-         if (Body != null) {
-             Body.querySelectorAll('script, style, nav, header, footer, .header, .footer').forEach((e) => e.remove());
-             content = Body.text.trim();
-         }
+    }
+
+    // Fallback strategies
+    if (content.isEmpty) {
+      var container =
+          doc.querySelector('.article-content') ??
+          doc.querySelector('.content') ??
+          doc.querySelector('#content') ??
+          doc.querySelector('.detail_content');
+
+      if (container != null) {
+        content = container.text.trim();
       }
-      
-      // Clean up whitespace
-      content = content.replaceAll(RegExp(r'\n\s*\n'), '\n\n').trim();
-      
-      result['content'] = content;
-      
-      // Combine locations
-      final main = result['main_location'] ?? '';
-      final branch = result['branch_location'] ?? '';
-      
-      if (main.isNotEmpty && branch.isNotEmpty) {
-         result['location'] = '主会场: $main\n分会场: $branch';
-      } else if (main.isNotEmpty) {
-         result['location'] = main;
-      } else if (branch.isNotEmpty) {
-         result['location'] = '分会场: $branch';
+    }
+
+    if (content.isEmpty) {
+      // Fallback cleaning
+      final Body = doc.body;
+      if (Body != null) {
+        Body.querySelectorAll(
+          'script, style, nav, header, footer, .header, .footer',
+        ).forEach((e) => e.remove());
+        content = Body.text.trim();
       }
-      
-      return result;
+    }
+
+    // Clean up whitespace
+    content = content.replaceAll(RegExp(r'\n\s*\n'), '\n\n').trim();
+
+    result['content'] = content;
+
+    // Combine locations
+    final main = result['main_location'] ?? '';
+    final branch = result['branch_location'] ?? '';
+
+    if (main.isNotEmpty && branch.isNotEmpty) {
+      result['location'] = '主会场: $main\n分会场: $branch';
+    } else if (main.isNotEmpty) {
+      result['location'] = main;
+    } else if (branch.isNotEmpty) {
+      result['location'] = '分会场: $branch';
+    }
+
+    return result;
   }
 
   _LecturePageResult _parseLecturesPage(String html) {
     // Debug save
-    try { File('debug_lecture_list.html').writeAsStringSync(html); } catch(_) {}
+    try {
+      File('debug_lecture_list.html').writeAsStringSync(html);
+    } catch (_) {}
 
     // Assuming table structure
     final document = html_parser.parse(html);
@@ -421,71 +499,106 @@ class UcasClient {
 
     final lectures = <Lecture>[];
     final rows = table.querySelectorAll('tr');
-    
+
     Map<String, int> headerMap = {};
     int startIndex = 1;
     if (rows.isNotEmpty) {
       final headerRow = rows.first;
       final headers = headerRow.querySelectorAll('th');
       if (headers.isNotEmpty) {
-          for (var i = 0; i < headers.length; i++) {
-            final text = headers[i].text.trim();
-            if (text.contains('讲座名称')) headerMap['name'] = i;
-            else if (text.contains('主讲人')) headerMap['speaker'] = i;
-            else if (text.contains('时间')) headerMap['time'] = i;
-            else if (text.contains('地点') || text.contains('场所') || text.contains('教室') || text.contains('会议室')) headerMap['location'] = i;
-            else if (text.contains('院系') || text.contains('单位') || text.contains('部门')) headerMap['dept'] = i;
-            else if (text.contains('操作区')) headerMap['action'] = i;
-          }
+        for (var i = 0; i < headers.length; i++) {
+          final text = headers[i].text.trim();
+          if (text.contains('讲座名称')) {
+            headerMap['name'] = i;
+          } else if (text.contains('主讲人'))
+            headerMap['speaker'] = i;
+          else if (text.contains('时间'))
+            headerMap['time'] = i;
+          else if (text.contains('地点') ||
+              text.contains('场所') ||
+              text.contains('教室') ||
+              text.contains('会议室'))
+            headerMap['location'] = i;
+          else if (text.contains('院系') ||
+              text.contains('单位') ||
+              text.contains('部门'))
+            headerMap['dept'] = i;
+          else if (text.contains('操作区'))
+            headerMap['action'] = i;
+        }
       }
     }
 
     for (var i = startIndex; i < rows.length; i++) {
-        final cells = rows[i].querySelectorAll('td');
-        if (cells.isEmpty) continue;
-        
-        String name = '';
-        String speaker = '';
-        String timeStr = '';
-        String location = '';
-        String dept = '';
-        String id = '';
+      final cells = rows[i].querySelectorAll('td');
+      if (cells.isEmpty) continue;
 
-        if (headerMap.isNotEmpty) {
-             name = headerMap.containsKey('name') && headerMap['name']! < cells.length ? cells[headerMap['name']!].text.trim() : '';
-             speaker = headerMap.containsKey('speaker') && headerMap['speaker']! < cells.length ? cells[headerMap['speaker']!].text.trim() : '';
-             timeStr = headerMap.containsKey('time') && headerMap['time']! < cells.length ? cells[headerMap['time']!].text.trim() : '';
-             location = headerMap.containsKey('location') && headerMap['location']! < cells.length ? cells[headerMap['location']!].text.trim().replaceAll(RegExp(r'\s+'), ' ') : '';
-             dept = headerMap.containsKey('dept') && headerMap['dept']! < cells.length ? cells[headerMap['dept']!].text.trim() : '';
-             
-             if (headerMap.containsKey('action') && headerMap['action']! < cells.length) {
-                 final a = cells[headerMap['action']!].querySelector('a');
-                 id = a?.attributes['href'] ?? '';
-             }
+      String name = '';
+      String speaker = '';
+      String timeStr = '';
+      String location = '';
+      String dept = '';
+      String id = '';
+
+      if (headerMap.isNotEmpty) {
+        name =
+            headerMap.containsKey('name') && headerMap['name']! < cells.length
+            ? cells[headerMap['name']!].text.trim()
+            : '';
+        speaker =
+            headerMap.containsKey('speaker') &&
+                headerMap['speaker']! < cells.length
+            ? cells[headerMap['speaker']!].text.trim()
+            : '';
+        timeStr =
+            headerMap.containsKey('time') && headerMap['time']! < cells.length
+            ? cells[headerMap['time']!].text.trim()
+            : '';
+        location =
+            headerMap.containsKey('location') &&
+                headerMap['location']! < cells.length
+            ? cells[headerMap['location']!].text.trim().replaceAll(
+                RegExp(r'\s+'),
+                ' ',
+              )
+            : '';
+        dept =
+            headerMap.containsKey('dept') && headerMap['dept']! < cells.length
+            ? cells[headerMap['dept']!].text.trim()
+            : '';
+
+        if (headerMap.containsKey('action') &&
+            headerMap['action']! < cells.length) {
+          final a = cells[headerMap['action']!].querySelector('a');
+          id = a?.attributes['href'] ?? '';
         }
+      }
 
-        if (name.isEmpty) continue;
+      if (name.isEmpty) continue;
 
-        String date = '';
-        final dateMatch = RegExp(r'\d{4}-\d{1,2}-\d{1,2}').firstMatch(timeStr);
-        if (dateMatch != null) {
-            date = dateMatch.group(0)!;
-            // Normalize to YYYY-MM-DD
-            final parts = date.split('-');
-            if (parts.length == 3) {
-               date = '${parts[0]}-${parts[1].padLeft(2, '0')}-${parts[2].padLeft(2, '0')}';
-            }
+      String date = '';
+      final dateMatch = RegExp(r'\d{4}-\d{1,2}-\d{1,2}').firstMatch(timeStr);
+      if (dateMatch != null) {
+        date = dateMatch.group(0)!;
+        // Normalize to YYYY-MM-DD
+        final parts = date.split('-');
+        if (parts.length == 3) {
+          date =
+              '${parts[0]}-${parts[1].padLeft(2, '0')}-${parts[2].padLeft(2, '0')}';
         }
+      }
 
-        lectures.add(Lecture(
-            id: id,
-            name: name,
-            speaker: speaker,
-            time: timeStr,
-            location: location,
-            department: dept,
-            date: date
-        ));
+      lectures.add(
+        Lecture(
+          id: id,
+          name: name,
+          speaker: speaker,
+          time: timeStr,
+          location: location,
+          department: dept,
+          date: date,
+        ),
+      );
     }
 
     // Find Next Page
@@ -495,14 +608,14 @@ class UcasClient {
     final allLinks = document.querySelectorAll('a');
     for (final link in allLinks) {
       if (link.text.contains('下一页') || link.text.contains('Next')) {
-         final onclick = link.attributes['onclick'];
-         if (onclick != null) {
-            final match = RegExp(r"gotoPage\('(\d+)'\)").firstMatch(onclick);
-            if (match != null) {
-               nextPageNum = int.tryParse(match.group(1)!);
-               break;
-            }
-         }
+        final onclick = link.attributes['onclick'];
+        if (onclick != null) {
+          final match = RegExp(r"gotoPage\('(\d+)'\)").firstMatch(onclick);
+          if (match != null) {
+            nextPageNum = int.tryParse(match.group(1)!);
+            break;
+          }
+        }
       }
     }
 
@@ -512,9 +625,9 @@ class UcasClient {
   Future<String?> _getPortalIdentity() async {
     final menuHtml = await _getText('$_sepBase/businessMenu');
     final portalUrl = _findPortalLink(menuHtml);
-    
+
     if (portalUrl == null) return null;
-    
+
     final portalResponse = await _dio.get<String>(
       portalUrl,
       options: Options(
@@ -523,7 +636,7 @@ class UcasClient {
         validateStatus: (status) => status != null && status < 500,
       ),
     );
-    
+
     String? redirectUrl;
     if (portalResponse.statusCode != null &&
         portalResponse.statusCode! >= 300 &&
@@ -532,110 +645,128 @@ class UcasClient {
     } else {
       redirectUrl = _extractRedirectUrl(portalResponse.data ?? '');
     }
-    
+
     if (redirectUrl == null) return null;
-    
+
     final identityMatch = RegExp(r'Identity=([^&]+)').firstMatch(redirectUrl);
     return identityMatch?.group(1);
   }
 
-  Future<List<Exam>> fetchExams(String username, String password, {String? captchaCode}) async {
-    final effectiveUsername = username.contains('@') ? username : '$username@mails.ucas.ac.cn';
+  Future<List<Exam>> fetchExams(
+    String username,
+    String password, {
+    String? captchaCode,
+  }) async {
+    final effectiveUsername = username.contains('@')
+        ? username
+        : '$username@mails.ucas.ac.cn';
     await _sepLogin(effectiveUsername, password, captchaCode: captchaCode);
-    
+
     // JWXK login requires Identity token from portal
-    
+
     final identity = await _getPortalIdentity();
-  if (identity == null) {
-    return [];
-  }
-    
+    if (identity == null) {
+      return [];
+    }
+
     // Build JWXK login URL with proper parameters
     // roleId=xs (学生), fromUrl=1, toUrl=XOR-encoded target path
     final targetPath = '/courseManage/selectedCourse';
     final encodedToUrl = _encodeToUrl(targetPath);
-    
-    final jwxkLoginUrl = '$_jwxkBase/login?Identity=$identity&roleId=xs&fromUrl=1&toUrl=$encodedToUrl';
-    
+
+    final jwxkLoginUrl =
+        '$_jwxkBase/login?Identity=$identity&roleId=xs&fromUrl=1&toUrl=$encodedToUrl';
+
     // Follow the login URL
     final loginResponse = await _getFollow(jwxkLoginUrl);
-    
+
     // Check if we successfully got to selectedCourse
     final content = loginResponse.data ?? '';
     if (content.contains('已选择的课程')) {
       return await _parseSelectedCourses(content);
     }
-    
+
     // If login redirected somewhere else, try accessing selectedCourse
-    final scResponse = await _getFollow('$_jwxkBase/courseManage/selectedCourse');
+    final scResponse = await _getFollow(
+      '$_jwxkBase/courseManage/selectedCourse',
+    );
     final scContent = scResponse.data ?? '';
-    
+
     if (scContent.contains('已选择的课程')) {
       return await _parseSelectedCourses(scContent);
     }
-    
+
     return [];
   }
-  
+
   // Parse the selectedCourse table for exam info and fetch details
   Future<List<Exam>> _parseSelectedCourses(String html) async {
     final document = html_parser.parse(html);
     final table = document.querySelector('table');
     if (table == null) return [];
-    
+
     final exams = <Exam>[];
     final rows = table.querySelectorAll('tbody tr');
-    
+
     for (final row in rows) {
       final cells = row.querySelectorAll('td');
       if (cells.length >= 7) {
         // Columns: 序号 | 课程编码 | 课程名称 | 学分 | 学位课 | 学期 | 考试时间
         final courseName = cells[2].text.trim();
         final semester = cells[5].text.trim();
-        
+
         // Get exam time link
         final examLink = cells[6].querySelector('a');
         final examHref = examLink?.attributes['href'];
-        
+
         if (examHref != null && examHref.isNotEmpty) {
           try {
             // Fix: Add base URL ensuring no double slash
-            final fullUrl = examHref.startsWith('http') ? examHref : 
-                           (examHref.startsWith('/') ? '$_jwxkBase$examHref' : '$_jwxkBase/$examHref');
-            
+            final fullUrl = examHref.startsWith('http')
+                ? examHref
+                : (examHref.startsWith('/')
+                      ? '$_jwxkBase$examHref'
+                      : '$_jwxkBase/$examHref');
+
             final detailResponse = await _getFollow(fullUrl);
             final detailContent = detailResponse.data ?? '';
-            
+
             final exam = _parseExamDetail(detailContent, courseName);
             if (exam != null) {
               exams.add(exam);
             } else {
               // Add placeholder if no exam detail found (or not scheduled yet)
-              exams.add(Exam(
-                courseName: courseName,
-                date: semester,
-                time: '未安排',
-                location: '@',
-                seat: '',
-              ));
+              exams.add(
+                Exam(
+                  courseName: courseName,
+                  date: semester,
+                  time: '未安排',
+                  location: '@',
+                  seat: '',
+                ),
+              );
             }
           } catch (e) {
-             exams.add(Exam(
+            exams.add(
+              Exam(
                 courseName: courseName,
                 date: semester,
                 time: '获取失败',
                 location: '@',
                 seat: '',
-              ));
+              ),
+            );
           }
         } else {
-           exams.add(Exam(
+          exams.add(
+            Exam(
               courseName: courseName,
               date: semester,
               time: '无考试信息',
               location: '@',
               seat: '',
-            ));
+            ),
+          );
         }
       }
     }
@@ -645,29 +776,29 @@ class UcasClient {
   // Parse specific exam detail page
   Exam? _parseExamDetail(String html, String courseName) {
     if (html.isEmpty) return null;
-    
+
     // Check if it says "未安排" or empty table (sometimes page exists but empty fields)
     if (html.contains('未安排') && !html.contains('考试开始时间')) {
-       return null;
+      return null;
     }
 
     final document = html_parser.parse(html);
     final table = document.querySelector('table');
-    
+
     if (table != null) {
       final rows = table.querySelectorAll('tr');
       String location = '';
       String startTime = '';
       String endTime = '';
-      
+
       for (final row in rows) {
         final th = row.querySelector('th');
         final td = row.querySelector('td');
         if (th == null || td == null) continue;
-        
+
         final key = th.text.trim();
         final value = td.text.trim();
-        
+
         if (key.contains('地点')) {
           location = value;
         } else if (key.contains('开始时间')) {
@@ -676,51 +807,52 @@ class UcasClient {
           endTime = value;
         }
       }
-      
+
       // If we found essential info
       if (startTime.isNotEmpty) {
-         // Format: 2026-01-08 13:30 or 2026-01-08 13:30:00
-         // We want date = 2026-01-08, time = 13:30 - 15:30 (calculated or just start)
-         
-         String date = '';
-         String timeDisplay = '';
-         
-         final startParts = startTime.split(' ');
-         if (startParts.length >= 2) {
-           date = startParts[0];
-           // Remove seconds if present
-           String startH = startParts[1];
-           if (startH.split(':').length > 2) {
-             startH = startH.substring(0, startH.lastIndexOf(':'));
-           }
-           
-           timeDisplay = startH;
-           
-           if (endTime.isNotEmpty) {
-              final endParts = endTime.split(' ');
-              if (endParts.length >= 2) {
-                String endH = endParts[1];
-                if (endH.split(':').length > 2) {
-                  endH = endH.substring(0, endH.lastIndexOf(':'));
-                }
-                timeDisplay = '$startH-$endH';
+        // Format: 2026-01-08 13:30 or 2026-01-08 13:30:00
+        // We want date = 2026-01-08, time = 13:30 - 15:30 (calculated or just start)
+
+        String date = '';
+        String timeDisplay = '';
+
+        final startParts = startTime.split(' ');
+        if (startParts.length >= 2) {
+          date = startParts[0];
+          // Remove seconds if present
+          String startH = startParts[1];
+          if (startH.split(':').length > 2) {
+            startH = startH.substring(0, startH.lastIndexOf(':'));
+          }
+
+          timeDisplay = startH;
+
+          if (endTime.isNotEmpty) {
+            final endParts = endTime.split(' ');
+            if (endParts.length >= 2) {
+              String endH = endParts[1];
+              if (endH.split(':').length > 2) {
+                endH = endH.substring(0, endH.lastIndexOf(':'));
               }
-           }
-         } else {
-           date = startTime;
-           timeDisplay = startTime;
-         }
-         
-         return Exam(
-           courseName: courseName,
-           date: date,
-           time: timeDisplay,
-           location: location,
-           seat: '', // Seat usually not in this table, maybe elsewhere or need to check other tables
-         );
+              timeDisplay = '$startH-$endH';
+            }
+          }
+        } else {
+          date = startTime;
+          timeDisplay = startTime;
+        }
+
+        return Exam(
+          courseName: courseName,
+          date: date,
+          time: timeDisplay,
+          location: location,
+          seat:
+              '', // Seat usually not in this table, maybe elsewhere or need to check other tables
+        );
       }
     }
-    
+
     return null;
   }
 
@@ -738,7 +870,11 @@ class UcasClient {
     return Uint8List.fromList(response.data!);
   }
 
-  Future<void> _sepLogin(String username, String password, {String? captchaCode}) async {
+  Future<void> _sepLogin(
+    String username,
+    String password, {
+    String? captchaCode,
+  }) async {
     if (_isAuthenticated) return;
 
     if (await _sepLoggedIn()) {
@@ -747,7 +883,7 @@ class UcasClient {
     }
     final loginPage = await _getText(_sepBase);
     final context = _parseLoginContext(loginPage);
-    
+
     if (context.captchaRequired || captchaCode != null) {
       if (captchaCode == null) {
         final image = await _fetchCaptchaImage();
@@ -774,7 +910,7 @@ class UcasClient {
         validateStatus: (status) => status != null && status < 500,
       ),
     );
-    
+
     print('DEBUG: _sepLogin Response Status: ${response.statusCode}');
     print('DEBUG: _sepLogin Real URI: ${response.realUri}');
     print('DEBUG: _sepLogin Headers:');
@@ -784,13 +920,13 @@ class UcasClient {
 
     // Check for specific error messages first
     if (body.contains('用户名或密码错误') || body.contains('密码错误')) {
-       throw const AuthException('用户名或密码错误');
+      throw const AuthException('用户名或密码错误');
     }
-    
+
     if (body.contains('验证码错误')) {
-       // This might still happen if we auto-filled (which we don't usually) or if explicit captcha failed.
-       // But if we didn't send captcha, it might just say "need captcha"?
-       // SEP usually returns to login page with error.
+      // This might still happen if we auto-filled (which we don't usually) or if explicit captcha failed.
+      // But if we didn't send captcha, it might just say "need captcha"?
+      // SEP usually returns to login page with error.
     }
 
     if (await _sepLoggedIn()) {
@@ -801,10 +937,10 @@ class UcasClient {
     // Now check parsing context for next steps (e.g. might need captcha now)
     final newContext = _parseLoginContext(body);
     if (newContext.captchaRequired) {
-       final image = await _fetchCaptchaImage();
-       throw CaptchaRequiredException(image);
+      final image = await _fetchCaptchaImage();
+      throw CaptchaRequiredException(image);
     }
-    
+
     // If we are here, logic failed but no specific error found?
     // Maybe check if we are still on login page
     throw const AuthException('登录失败，请检查网络或重试');
@@ -872,7 +1008,9 @@ class UcasClient {
     }
 
     await _getFollow(redirectUrl);
-    final scheduleResponse = await _getFollow('$_xkgodjBase/course/personSchedule');
+    final scheduleResponse = await _getFollow(
+      '$_xkgodjBase/course/personSchedule',
+    );
     return scheduleResponse.data ?? '';
   }
 
@@ -915,8 +1053,9 @@ class UcasClient {
   }
 
   _LoginContext _parseLoginContext(String html) {
-    final keyMatch =
-        RegExp("jsePubKey\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]").firstMatch(html);
+    final keyMatch = RegExp(
+      "jsePubKey\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]",
+    ).firstMatch(html);
     if (keyMatch == null) {
       throw Exception('未能找到 SEP 登录公钥');
     }
@@ -940,7 +1079,8 @@ class UcasClient {
       final end = (i + 64).clamp(0, publicKey.length);
       chunks.add(publicKey.substring(i, end));
     }
-    final pem = '-----BEGIN PUBLIC KEY-----\n${chunks.join('\n')}\n-----END PUBLIC KEY-----\n';
+    final pem =
+        '-----BEGIN PUBLIC KEY-----\n${chunks.join('\n')}\n-----END PUBLIC KEY-----\n';
     final rsaKey = RSAKeyParser().parse(pem) as RSAPublicKey;
     return Encrypter(RSA(publicKey: rsaKey)).encrypt(password).base64;
   }
@@ -979,7 +1119,10 @@ class UcasClient {
     return null;
   }
 
-  String? _findPortalLink(String html, {List<String> keywords = const ['选课', '我的课程']}) {
+  String? _findPortalLink(
+    String html, {
+    List<String> keywords = const ['选课', '我的课程'],
+  }) {
     final document = html_parser.parse(html);
     final links = document.querySelectorAll('a');
     for (final link in links) {
@@ -1010,13 +1153,16 @@ class UcasClient {
   }
 
   String? _extractRedirectUrl(String html) {
-    final metaMatch = RegExp(r'url=([^">]+)', caseSensitive: false)
-        .firstMatch(html);
+    final metaMatch = RegExp(
+      r'url=([^">]+)',
+      caseSensitive: false,
+    ).firstMatch(html);
     if (metaMatch != null) {
       return metaMatch.group(1)?.trim();
     }
-    final jsMatch = RegExp("location\\.href\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]")
-        .firstMatch(html);
+    final jsMatch = RegExp(
+      "location\\.href\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]",
+    ).firstMatch(html);
     if (jsMatch != null) {
       return jsMatch.group(1)?.trim();
     }
@@ -1025,32 +1171,33 @@ class UcasClient {
 
   List<Score> _parseScores(String html) {
     final document = html_parser.parse(html);
-    
+
     // Find all tables - score data is usually in a table with more than 4 columns
     final allTables = document.querySelectorAll('table');
-    
+
     if (allTables.isEmpty) {
       return [];
     }
-    
+
     // Try to find the score table - it should have headers with 课程/成绩/学分 etc.
     final scores = <Score>[];
-    
+
     for (int tableIdx = 0; tableIdx < allTables.length; tableIdx++) {
       final table = allTables[tableIdx];
       final rows = table.querySelectorAll('tr');
-      
+
       // Check first row for headers
       if (rows.isEmpty) continue;
-      
+
       final headerRow = rows.first;
       final headers = headerRow.querySelectorAll('th');
       final headerText = headers.map((h) => h.text.trim()).join(',');
-      
+
       // If this table has score-like headers, parse it
-      if (headerText.contains('课程') || headerText.contains('成绩') || 
-          headerText.contains('学分') || headerText.contains('课号')) {
-        
+      if (headerText.contains('课程') ||
+          headerText.contains('成绩') ||
+          headerText.contains('学分') ||
+          headerText.contains('课号')) {
         // Determine indices based on headers if possible, or assume standard structure
         // Standard based on debug: 课程名称,英文名称,分数,学分,学位课,学期,评估状态
         int idxName = -1;
@@ -1063,51 +1210,63 @@ class UcasClient {
 
         for (int i = 0; i < headers.length; i++) {
           final h = headers[i].text.trim();
-          if (h.contains('课程名称')) idxName = i;
-          else if (h.contains('英文名称')) idxEnName = i;
-          else if (h.contains('分数') || h.contains('成绩')) idxScore = i;
-          else if (h.contains('学分')) idxCredit = i;
-          else if (h.contains('学位课')) idxDegree = i;
-          else if (h.contains('学期')) idxSemester = i;
-          else if (h.contains('评估')) idxEval = i;
+          if (h.contains('课程名称')) {
+            idxName = i;
+          } else if (h.contains('英文名称'))
+            idxEnName = i;
+          else if (h.contains('分数') || h.contains('成绩'))
+            idxScore = i;
+          else if (h.contains('学分'))
+            idxCredit = i;
+          else if (h.contains('学位课'))
+            idxDegree = i;
+          else if (h.contains('学期'))
+            idxSemester = i;
+          else if (h.contains('评估'))
+            idxEval = i;
         }
 
         // Parse data rows (skip header)
         for (int i = 1; i < rows.length; i++) {
           final row = rows[i];
           final cells = row.querySelectorAll('td');
-          
-          if (cells.isNotEmpty) {
-             // Helper to safe get text
-             String getCell(int idx) => (idx >= 0 && idx < cells.length) ? cells[idx].text.trim() : '';
 
-             final name = getCell(idxName != -1 ? idxName : 0);
-             // Verify this is a valid row (sometimes first col is ID or checkbox)
-             if (name.isEmpty || name.contains('姓名') || name == '课程名称') continue;
-             
-             // Fallback for crucial fields if indices failed to map (e.g. strict order)
-             // If idxScore is -1, try to find numeric or known string
-             
-             scores.add(Score(
+          if (cells.isNotEmpty) {
+            // Helper to safe get text
+            String getCell(int idx) =>
+                (idx >= 0 && idx < cells.length) ? cells[idx].text.trim() : '';
+
+            final name = getCell(idxName != -1 ? idxName : 0);
+            // Verify this is a valid row (sometimes first col is ID or checkbox)
+            if (name.isEmpty || name.contains('姓名') || name == '课程名称') continue;
+
+            // Fallback for crucial fields if indices failed to map (e.g. strict order)
+            // If idxScore is -1, try to find numeric or known string
+
+            scores.add(
+              Score(
                 name: name,
                 englishName: getCell(idxEnName),
-                score: getCell(idxScore != -1 ? idxScore : 2), // Default to 2 if mapping failed
+                score: getCell(
+                  idxScore != -1 ? idxScore : 2,
+                ), // Default to 2 if mapping failed
                 credit: getCell(idxCredit != -1 ? idxCredit : 3),
                 isDegree: getCell(idxDegree),
                 semester: getCell(idxSemester != -1 ? idxSemester : 5),
-                type: '', 
+                type: '',
                 evaluation: getCell(idxEval),
-             ));
+              ),
+            );
           }
         }
-        
+
         // If we found scores, return them
         if (scores.isNotEmpty) {
           return scores;
         }
       }
     }
-    
+
     return scores;
   }
 
@@ -1117,7 +1276,7 @@ class UcasClient {
     if (table == null) {
       return [];
     }
-    
+
     final exams = <Exam>[];
     final rows = table.querySelectorAll('tbody tr');
     for (final row in rows) {
@@ -1126,23 +1285,27 @@ class UcasClient {
         String name = cells[0].text.trim();
         String time = '';
         String location = '';
-        
+
         // Try to find datetime-like string in cells
         for (final cell in cells) {
           final text = cell.text.trim();
-          if (text.contains('202') && text.contains('-') && text.contains(':')) {
+          if (text.contains('202') &&
+              text.contains('-') &&
+              text.contains(':')) {
             time = text;
           }
         }
-        
+
         if (time.isNotEmpty) {
-          exams.add(Exam(
-            courseName: name,
-            date: time.split(' ').first,
-            time: time,
-            location: location,
-            seat: '',
-          ));
+          exams.add(
+            Exam(
+              courseName: name,
+              date: time.split(' ').first,
+              time: time,
+              location: location,
+              seat: '',
+            ),
+          );
         }
       }
     }
@@ -1263,7 +1426,7 @@ class UcasClient {
         name: name,
         weekday: weekday,
         courseId: courseId,
-        sections: {},  // Set literal
+        sections: {}, // Set literal
       ),
     );
     group.sections.add(section);
@@ -1310,7 +1473,7 @@ class UcasClient {
           detail.location = value;
           break;
         case '上课周次':
-          detail.weeksList.add(value);  // Accumulate all week ranges
+          detail.weeksList.add(value); // Accumulate all week ranges
           break;
       }
     }
@@ -1324,18 +1487,17 @@ class UcasClient {
     // First pass: group entries by base key (name + weekday + sections) and merge weeks
     final grouped = <String, _MergedCourse>{};
     var counter = 0;
-    
+
     for (final entry in entries) {
       counter += 1;
-      final detail = entry.courseId != null
-          ? details[entry.courseId!]
-          : null;
-      
+      final detail = entry.courseId != null ? details[entry.courseId!] : null;
+
       // Base key without weeks - courses with same base key will have weeks merged
-      final baseKey = '${entry.name}::${entry.weekday.dayIndex}::${entry.startSection}::${entry.endSection}';
-      
+      final baseKey =
+          '${entry.name}::${entry.weekday.dayIndex}::${entry.startSection}::${entry.endSection}';
+
       final weeks = detail?.weeks ?? '未标注';
-      
+
       if (grouped.containsKey(baseKey)) {
         // Merge weeks
         grouped[baseKey]!.addWeeks(weeks);
@@ -1353,7 +1515,7 @@ class UcasClient {
         );
       }
     }
-    
+
     // Second pass: build Course objects from merged data
     final courses = <Course>[];
     for (final merged in grouped.values) {
@@ -1376,6 +1538,221 @@ class UcasClient {
       );
     }
     return Schedule(courses: courses);
+  }
+  // --- Auto Course Selection (Robber) Support ---
+
+  // --- Auto Course Selection (Robber) Support ---
+
+  // Dynamic base URL for course selection system (xkgo/xkgodj)
+  String? _dynamicXkgoBase;
+
+  /// Ensure we have a valid session for the Course Selection system.
+  /// This mimics the logic of accessing the system from SEP Portal -> Redirect -> System.
+  /// It sets the session cookie and discovers the correct Base URL.
+  Future<void> _ensureCourseSystemLogin() async {
+    // If we already have a base URL and assume session is alive, we could skip.
+    // But to be safe (and handle timeouts), we can re-verify or just allow re-login if needed.
+    // For this implementation, we'll do it if base is null. A more robust way handles 401/404 retry.
+    if (_dynamicXkgoBase != null) return;
+
+    // 1. Ensure SEP Login
+    if (!_isAuthenticated) {
+      // This assumes the upper layer called login() with credeintials at some point.
+      // If not, we fail. The Robber logic ensures client.login() is called.
+    }
+    if (!(await _sepLoggedIn())) {
+      throw Exception('SEP Session expired, please re-login');
+    }
+
+    // 2. Find "选课" link in Business Menu
+    final menuHtml = await _getText('$_sepBase/businessMenu');
+    // Look specifically for '选课'
+    final portalUrl = _findPortalLink(menuHtml, keywords: ['选课']);
+
+    if (portalUrl == null) {
+      throw Exception(
+        'Cannot find "选课" link in SEP Menu. Please check permissions.',
+      );
+    }
+
+    // 3. Follow Redirect (SEP -> Identity -> System)
+    // Get the intermediate redirect
+    final portalResponse = await _dio.get<String>(
+      portalUrl,
+      options: Options(
+        followRedirects: false,
+        responseType: ResponseType.plain,
+        validateStatus: (status) => status != null && status < 500,
+      ),
+    );
+
+    String? redirectUrl;
+    if (portalResponse.statusCode != null &&
+        portalResponse.statusCode! >= 300 &&
+        portalResponse.statusCode! < 400) {
+      redirectUrl = portalResponse.headers.value('location');
+    } else {
+      redirectUrl = _extractRedirectUrl(portalResponse.data ?? '');
+    }
+
+    if (redirectUrl == null || redirectUrl.isEmpty) {
+      throw Exception('Failed to get redirect URL from SEP Portal');
+    }
+
+    if (redirectUrl.startsWith('/')) {
+      redirectUrl = '$_sepBase$redirectUrl';
+    }
+
+    // 4. Follow the final redirect to the system (and set cookies)
+    final systemResponse = await _getFollow(redirectUrl);
+    final finalUri = systemResponse.realUri;
+
+    // Set the base URL dynamically! e.g. https://xkgo.ucas.ac.cn:3000 or https://xkgodj.ucas.ac.cn
+    // We strip the path to get the origin.
+    _dynamicXkgoBase =
+        '${finalUri.scheme}://${finalUri.host}${finalUri.hasPort ? ":${finalUri.port}" : ""}';
+
+    print('DEBUG: Discovered Course System URL: $_dynamicXkgoBase');
+  }
+
+  /// Search for courses by name or code.
+  Future<String> searchCourse(String query, {bool isCode = false}) async {
+    await _ensureCourseSystemLogin();
+    final baseUrl = _dynamicXkgoBase!;
+
+    final data = {
+        "type": "",
+        "deptIds1": "",
+        "courseType1": "",
+        "courseCode": isCode ? query : "",
+        "courseName": isCode ? "" : query,
+    };
+
+    final response = await _dio.post<String>(
+      '$baseUrl/courseManage/selectCourse',
+      data: data,
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        responseType: ResponseType.plain,
+        headers: {'Referer': '$baseUrl/courseManage/main'},
+      ),
+    );
+    return response.data ?? '';
+  }
+
+  /// Get captcha image as raw bytes for the course selection system.
+  Future<Uint8List> getCourseSelectionCaptcha() async {
+    await _ensureCourseSystemLogin();
+    final baseUrl = _dynamicXkgoBase!;
+
+    final response = await _dio.get<List<int>>(
+      '$baseUrl/captchaImage',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    if (response.data == null) {
+      throw Exception('Failed to fetch captcha');
+    }
+    return Uint8List.fromList(response.data!);
+  }
+
+  /// Submit course selection.
+  Future<String> saveCourse(String sids, String vcode) async {
+    await _ensureCourseSystemLogin();
+    final baseUrl = _dynamicXkgoBase!;
+
+    final deptIds = [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "910",
+      "911",
+      "957",
+      "912",
+      "928",
+      "913",
+      "914",
+      "921",
+      "951",
+      "952",
+      "958",
+      "917",
+      "945",
+      "927",
+      "964",
+      "915",
+      "954",
+      "955",
+      "959",
+      "946",
+      "961",
+      "962",
+      "963",
+      "968",
+      "969",
+      "970",
+      "971",
+      "972",
+      "967",
+      "973",
+      "974",
+      "975",
+      "977",
+      "987",
+      "989",
+      "950",
+      "965",
+      "990",
+      "988",
+    ];
+
+    final data = {"vcode": vcode, "deptIds": deptIds, "sids": sids};
+
+    final response = await _dio.post<String>(
+      '$baseUrl/courseManage/saveCourse',
+      data: data,
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        responseType: ResponseType.plain,
+        headers: {'Referer': '$baseUrl/courseManage/selectCourse'},
+      ),
+    );
+
+    return response.data ?? '';
   }
 }
 
@@ -1463,7 +1840,7 @@ class _CourseGroup {
   final String name;
   final _Weekday weekday;
   final String? courseId;
-  final Set<int> sections;  // Use Set to prevent duplicates
+  final Set<int> sections; // Use Set to prevent duplicates
 }
 
 class _CourseDetail {
@@ -1485,9 +1862,9 @@ class _CourseDetail {
 
   String timeText;
   String location;
-  List<String> weeksList;  // List to accumulate multiple week ranges
+  List<String> weeksList; // List to accumulate multiple week ranges
   String teacher;
-  
+
   // Helper to get merged weeks string
   String get weeks {
     if (weeksList.isEmpty) return '未标注';

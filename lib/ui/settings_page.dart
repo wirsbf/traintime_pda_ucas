@@ -1,6 +1,4 @@
-import 'package:talker_flutter/talker_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../utils/logger.dart';
 import 'package:flutter/material.dart';
 
 import '../data/settings_controller.dart';
@@ -107,9 +105,9 @@ class _SettingsPageState extends State<SettingsPage> {
           title: '关于',
           subtitle: 'TraintimePDA UCAS',
           trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const AboutPage()),
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const AboutPage())),
         ),
       ],
     );
@@ -122,17 +120,12 @@ class AboutPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('关于'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('关于'), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           const SizedBox(height: 20),
-          const Center(
-            child: Icon(Icons.train, size: 80, color: Colors.blue),
-          ),
+          const Center(child: Icon(Icons.train, size: 80, color: Colors.blue)),
           const SizedBox(height: 16),
           const Center(
             child: Text(
@@ -153,7 +146,9 @@ class AboutPage extends StatelessWidget {
             title: const Text('项目地址'),
             subtitle: const Text('github.com/wirsbf/traintime_pda_ucas'),
             trailing: const Icon(Icons.open_in_new, size: 16),
-            onTap: () => launchUrl(Uri.parse('https://github.com/wirsbf/traintime_pda_ucas')),
+            onTap: () => launchUrl(
+              Uri.parse('https://github.com/wirsbf/traintime_pda_ucas'),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.person),
@@ -165,7 +160,11 @@ class AboutPage extends StatelessWidget {
             title: const Text('检查更新'),
             subtitle: const Text('查看最新版本'),
             trailing: const Icon(Icons.open_in_new, size: 16),
-            onTap: () => launchUrl(Uri.parse('https://github.com/wirsbf/traintime_pda_ucas/releases')),
+            onTap: () => launchUrl(
+              Uri.parse(
+                'https://github.com/wirsbf/traintime_pda_ucas/releases',
+              ),
+            ),
           ),
           const SizedBox(height: 32),
           const Divider(),
@@ -324,7 +323,7 @@ class _StepperCard extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.minValue = -99,
-    this.maxValue = 100,
+    this.maxValue = 99,
   });
 
   final String title;

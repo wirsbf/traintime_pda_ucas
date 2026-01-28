@@ -1,24 +1,53 @@
 name: Build Windows
 
 on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
+
     steps:
       - uses: actions/checkout@v4
-      
+
+      # 1. Setup Rust
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+
+      # 2. Build Rust Library
+      - name: Build Rust Library
+        run: |
+          cd rust
+          cargo build --release
+          cd ..
+
+      # 3. Setup Flutter
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
-          
-      - run: flutter pub get
-      
-      - run: flutter build windows --release
-      
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # 4. Build Flutter App
+      - name: Build Windows App
+        run: flutter build windows --release
+
+      # 5. Copy Rust DLL to Output Directory
+      - name: Copy Rust DLL
+        run: |
+          Copy-Item rust\target\release\rust_ocr.dll build\windows\x64\runner\Release\ -Force
+
+      # 6. Upload Artifact
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-app
+          name: traintime-pda-windows
           path: build/windows/x64/runner/Release

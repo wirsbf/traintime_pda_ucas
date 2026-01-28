@@ -114,7 +114,10 @@ class CacheManager {
   // Timestamp
   Future<void> saveLastUpdateTime() async {
     if (_prefs == null) await init();
-    await _prefs!.setInt('last_update_timestamp', DateTime.now().millisecondsSinceEpoch);
+    await _prefs!.setInt(
+      'last_update_timestamp',
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   Future<int> getLastUpdateTime() async {
@@ -126,11 +129,11 @@ class CacheManager {
   Future<void> addCustomCourse(Course course) async {
     if (_prefs == null) await init();
     final current = await getCustomCourses();
-    // Avoid duplicates by ID or content? 
+    // Avoid duplicates by ID or content?
     // Lectures don't have UUIDs really, but ID exists.
     // Let's just append.
     current.add(course);
-    
+
     try {
       final jsonList = current.map((e) => e.toJson()).toList();
       await _prefs!.setString('cache_custom_courses', jsonEncode(jsonList));
@@ -192,10 +195,16 @@ class CacheManager {
     } catch (_) {}
   }
 
-  Future<void> updateCustomExam(String oldCourseName, String oldDate, Exam newExam) async {
+  Future<void> updateCustomExam(
+    String oldCourseName,
+    String oldDate,
+    Exam newExam,
+  ) async {
     if (_prefs == null) await init();
     final current = await getCustomExams();
-    final index = current.indexWhere((e) => e.courseName == oldCourseName && e.date == oldDate);
+    final index = current.indexWhere(
+      (e) => e.courseName == oldCourseName && e.date == oldDate,
+    );
     if (index != -1) {
       current[index] = newExam;
       try {

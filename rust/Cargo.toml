@@ -1,0 +1,10 @@
+[package]
+name = "rust_ocr"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master" }

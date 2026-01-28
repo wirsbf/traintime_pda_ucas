@@ -12,16 +12,7 @@ const double _topRowHeight = 40;
 const double _rowHeight = 48; // Increased height for 3 lines of text
 const double _cardInset = 2;
 
-
-const List<String> _weekdayCn = [
-  '周一',
-  '周二',
-  '周三',
-  '周四',
-  '周五',
-  '周六',
-  '周日',
-];
+const List<String> _weekdayCn = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const List<String> _weekdayEn = [
   'Monday',
   'Tuesday',
@@ -63,8 +54,8 @@ class ScheduleGrid extends StatelessWidget {
         return Column(
           children: [
             _HeaderRow(
-              colWidth: colWidth, 
-              startOfWeek: startOfWeek, 
+              colWidth: colWidth,
+              startOfWeek: startOfWeek,
               visibleDays: visibleDays,
             ),
             Expanded(
@@ -80,7 +71,10 @@ class ScheduleGrid extends StatelessWidget {
                       child: Stack(
                         children: [
                           CustomPaint(
-                            size: Size(totalWidth - _leftColumnWidth, gridHeight),
+                            size: Size(
+                              totalWidth - _leftColumnWidth,
+                              gridHeight,
+                            ),
                             painter: _GridPainter(
                               rows: sectionCount,
                               cols: visibleDays,
@@ -217,9 +211,7 @@ class _TimeColumn extends StatelessWidget {
             height: _rowHeight,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -236,12 +228,20 @@ class _TimeColumn extends StatelessWidget {
                 if (start.isNotEmpty)
                   Text(
                     start,
-                    style: const TextStyle(fontSize: 8, color: Colors.grey, height: 1.1),
+                    style: const TextStyle(
+                      fontSize: 8,
+                      color: Colors.grey,
+                      height: 1.1,
+                    ),
                   ),
                 if (end.isNotEmpty)
                   Text(
                     end,
-                    style: const TextStyle(fontSize: 8, color: Colors.grey, height: 1.1),
+                    style: const TextStyle(
+                      fontSize: 8,
+                      color: Colors.grey,
+                      height: 1.1,
+                    ),
                   ),
               ],
             ),
@@ -253,11 +253,7 @@ class _TimeColumn extends StatelessWidget {
 }
 
 class _CourseCard extends StatelessWidget {
-  const _CourseCard({
-    required this.courses,
-    required this.layout,
-    this.onTap,
-  });
+  const _CourseCard({required this.courses, required this.layout, this.onTap});
 
   final List<Course> courses;
   final _CourseLayout layout;
@@ -266,7 +262,7 @@ class _CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (courses.isEmpty) return const SizedBox.shrink();
-    
+
     final course = courses.first;
     // Use scarlet color for exams
     final isExam = course.id.startsWith('E_') || course.name.startsWith('[考试]');
@@ -279,57 +275,64 @@ class _CourseCard extends StatelessWidget {
       width: layout.width,
       height: layout.height,
       child: BouncingButton(
-      onTap: () {
-        if (courses.length == 1 && onTap != null) {
-           onTap!(courses.first);
-           return;
-        }
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(count > 1 ? '课程列表 ($count)' : course.name),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: count,
-                separatorBuilder: (context, index) => const Divider(),
-                itemBuilder: (context, index) {
-                  final c = courses[index];
-                  return InkWell(
-                    onTap: onTap != null ? () {
-                       Navigator.pop(context);
-                       onTap!(c);
-                    } : null,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (count > 1) 
-                             Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          Text('教室: ${c.classroom}'),
-                          if (c.teacher.isNotEmpty) Text('教师: ${c.teacher}'),
-                          Text('时间: ${c.weekday} ${_sectionLabelStr(c)}'),
-                          if (c.weeks.isNotEmpty) Text('周次: ${c.weeks}'),
-                          if (c.notes.isNotEmpty) Text('备注: ${c.notes}'),
-                        ],
+        onTap: () {
+          if (courses.length == 1 && onTap != null) {
+            onTap!(courses.first);
+            return;
+          }
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(count > 1 ? '课程列表 ($count)' : course.name),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: count,
+                  separatorBuilder: (context, index) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final c = courses[index];
+                    return InkWell(
+                      onTap: onTap != null
+                          ? () {
+                              Navigator.pop(context);
+                              onTap!(c);
+                            }
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (count > 1)
+                              Text(
+                                c.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            Text('教室: ${c.classroom}'),
+                            if (c.teacher.isNotEmpty) Text('教师: ${c.teacher}'),
+                            Text('时间: ${c.weekday} ${_sectionLabelStr(c)}'),
+                            if (c.weeks.isNotEmpty) Text('周次: ${c.weeks}'),
+                            if (c.notes.isNotEmpty) Text('备注: ${c.notes}'),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('关闭'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('关闭'),
-              ),
-            ],
-          ),
-        );
-      },
+          );
+        },
         child: Container(
           padding: const EdgeInsets.all(1),
           decoration: BoxDecoration(
@@ -371,12 +374,9 @@ class _CourseCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '@${course.classroom}',
-                      maxLines: 1, 
-                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: palette.text,
-                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 9, color: palette.text),
                     ),
                     Text(
                       _sectionLabelStr(course),
@@ -394,13 +394,16 @@ class _CourseCard extends StatelessWidget {
                   right: 0,
                   top: 0,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: palette.border,
-                       borderRadius: const BorderRadius.only(
-                         bottomLeft: Radius.circular(6),
-                         topRight: Radius.circular(5),
-                       ),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(6),
+                        topRight: Radius.circular(5),
+                      ),
                     ),
                     child: Text(
                       '+${count - 1}',
@@ -419,11 +422,10 @@ class _CourseCard extends StatelessWidget {
     );
   }
 
-  
   String _sectionLabelStr(Course course) {
-      // Helper to friendly format section part
-      // This is a bit ad-hoc, but better than nothing
-      return '${course.timeSlot.startTime}-${course.timeSlot.endTime}';
+    // Helper to friendly format section part
+    // This is a bit ad-hoc, but better than nothing
+    return '${course.timeSlot.startTime}-${course.timeSlot.endTime}';
   }
 }
 
@@ -524,76 +526,80 @@ List<_LayoutItem> _buildLayouts(
   // Pre-process courses into temporary items with range
   final items = <_TempItem>[];
   for (final course in courses) {
-     final range = _sectionRange(course);
-     if (range == null) continue;
-     items.add(_TempItem(course, range.$1, range.$2));
+    final range = _sectionRange(course);
+    if (range == null) continue;
+    items.add(_TempItem(course, range.$1, range.$2));
   }
-  
+
   // Sort by start time
   items.sort((a, b) {
-      if (a.start != b.start) return a.start.compareTo(b.start);
-      return a.end.compareTo(b.end);
+    if (a.start != b.start) return a.start.compareTo(b.start);
+    return a.end.compareTo(b.end);
   });
 
   for (final item in items) {
-     int? mergeIndex;
-     
-     // Find if it overlaps with any existing event
-     for (int i = 0; i < events.length; i++) {
-        final existing = events[i];
-        if (existing.courses.isEmpty) continue;
-        
-        // We use the layout range of the existing event
-        final exStart = existing.layout.startSection;
-        final exEnd = existing.layout.endSection;
-        
-        // Check overlap. Note: The existing event might be on a different DAY!
-        // Wait, _buildLayouts in previous code handled ALL days. 
-        // We MUST ensure we only merge courses on the SAME DAY.
-        final exDay = existing.courses.first.weekday;
-        if (exDay == item.course.weekday) {
-             if (isOverlapping(item.start, item.end, exStart, exEnd)) {
-                 mergeIndex = i;
-                 break;
-             }
+    int? mergeIndex;
+
+    // Find if it overlaps with any existing event
+    for (int i = 0; i < events.length; i++) {
+      final existing = events[i];
+      if (existing.courses.isEmpty) continue;
+
+      // We use the layout range of the existing event
+      final exStart = existing.layout.startSection;
+      final exEnd = existing.layout.endSection;
+
+      // Check overlap. Note: The existing event might be on a different DAY!
+      // Wait, _buildLayouts in previous code handled ALL days.
+      // We MUST ensure we only merge courses on the SAME DAY.
+      final exDay = existing.courses.first.weekday;
+      if (exDay == item.course.weekday) {
+        if (isOverlapping(item.start, item.end, exStart, exEnd)) {
+          mergeIndex = i;
+          break;
         }
-     }
-     
-     if (mergeIndex != null) {
-         // Merge
-         final existing = events[mergeIndex];
-         final newStart = math.min(existing.layout.startSection, item.start);
-         final newEnd = math.max(existing.layout.endSection, item.end);
-         
-         final newLayout = _CourseLayout(
-            top: _rowHeight * (newStart - 1) + _cardInset,
-            left: existing.layout.left, // Keep same left/width
-            width: existing.layout.width,
-            height: _rowHeight * (newEnd - newStart + 1) - _cardInset * 2,
-            startSection: newStart,
-            endSection: newEnd,
-         );
-         
-         existing.courses.add(item.course);
-         // Update layout (hacky: we are replacing the layout of the existing item)
-         // Since _LayoutItem is final, we replace the item in the list
-         events[mergeIndex] = _LayoutItem(courses: existing.courses, layout: newLayout);
-         
-     } else {
-         // Add new
-         final dayIndex = _weekdayIndex(item.course.weekday);
-         if (dayIndex == null) continue; // Should not happen if _sectionRange worked
-         
-         final layout = _CourseLayout(
-            top: _rowHeight * (item.start - 1) + _cardInset,
-            left: colWidth * dayIndex + _cardInset,
-            width: colWidth - _cardInset * 2,
-            height: _rowHeight * (item.end - item.start + 1) - _cardInset * 2,
-            startSection: item.start,
-            endSection: item.end,
-         );
-         events.add(_LayoutItem(courses: [item.course], layout: layout));
-     }
+      }
+    }
+
+    if (mergeIndex != null) {
+      // Merge
+      final existing = events[mergeIndex];
+      final newStart = math.min(existing.layout.startSection, item.start);
+      final newEnd = math.max(existing.layout.endSection, item.end);
+
+      final newLayout = _CourseLayout(
+        top: _rowHeight * (newStart - 1) + _cardInset,
+        left: existing.layout.left, // Keep same left/width
+        width: existing.layout.width,
+        height: _rowHeight * (newEnd - newStart + 1) - _cardInset * 2,
+        startSection: newStart,
+        endSection: newEnd,
+      );
+
+      existing.courses.add(item.course);
+      // Update layout (hacky: we are replacing the layout of the existing item)
+      // Since _LayoutItem is final, we replace the item in the list
+      events[mergeIndex] = _LayoutItem(
+        courses: existing.courses,
+        layout: newLayout,
+      );
+    } else {
+      // Add new
+      final dayIndex = _weekdayIndex(item.course.weekday);
+      if (dayIndex == null) {
+        continue; // Should not happen if _sectionRange worked
+      }
+
+      final layout = _CourseLayout(
+        top: _rowHeight * (item.start - 1) + _cardInset,
+        left: colWidth * dayIndex + _cardInset,
+        width: colWidth - _cardInset * 2,
+        height: _rowHeight * (item.end - item.start + 1) - _cardInset * 2,
+        startSection: item.start,
+        endSection: item.end,
+      );
+      events.add(_LayoutItem(courses: [item.course], layout: layout));
+    }
   }
 
   return events;

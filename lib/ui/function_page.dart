@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'course_reviews_page.dart';
 import 'score_page.dart';
-import 'webview_page.dart';
 import 'exam_page.dart';
 import 'widget/swipe_back_route.dart';
+import 'webview_page.dart';
+import 'auto_select_page.dart';
 
 import '../data/settings_controller.dart';
 import '../data/ucas_client.dart';
@@ -23,24 +24,23 @@ class FunctionPage extends StatelessWidget {
 
     try {
       // Force refresh session (auto-login) to ensure cookies are valid for Service Hall
-      // Service Hall relies on SEP cookies being fresh
       if (settings.username.isNotEmpty && settings.password.isNotEmpty) {
-         await UcasClient().login(settings.username, settings.password);
+        await UcasClient().login(settings.username, settings.password);
       }
     } catch (e) {
       debugPrint('Auto-login failed: $e');
-      // Continue anyway, maybe cookies are still valid or user can login in webview
+      // Continue anyway
     } finally {
       if (context.mounted) {
         Navigator.of(context).pop(); // Close loading
         Navigator.of(context).push(
-           MaterialPageRoute(
-             builder: (_) => WebViewPage(
-               url: 'https://ehall.ucas.ac.cn',
-               title: '办事大厅',
-               settings: settings,
-             ),
-           ),
+          MaterialPageRoute(
+            builder: (_) => WebViewPage(
+              url: 'https://ehall.ucas.ac.cn',
+              title: '办事大厅',
+              settings: settings,
+            ),
+          ),
         );
       }
     }
@@ -49,61 +49,90 @@ class FunctionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('功能'),
-        centerTitle: true,
-      ),
-      body: GridView.count(
-        crossAxisCount: 2,
+      appBar: AppBar(title: const Text('功能'), centerTitle: true),
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
         children: [
-          _FunctionCard(
-             icon: Icons.score, 
-             title: '成绩查询',
-             color: Colors.blue.shade100,
-             iconColor: Colors.blue,
-             onTap: () {
-               Navigator.of(context).push(
-                 SwipeBackPageRoute(page: const ScorePage()),
-               );
-             },
+          _FunctionTile(
+            icon: Icons.score,
+            title: '成绩查询',
+            subtitle: '查询期末成绩与GPA',
+            color: Colors.blue.shade100,
+            iconColor: Colors.blue,
+            onTap: () {
+              Navigator.of(
+                context,
+              ).push(SwipeBackPageRoute(page: const ScorePage()));
+            },
           ),
-          _FunctionCard(
-             icon: Icons.event_note, 
-             title: '考试安排',
-             color: Colors.purple.shade100,
-             iconColor: Colors.purple,
-             onTap: () {
-               Navigator.of(context).push(
-                 SwipeBackPageRoute(page: const ExamPage()),
-               );
-             },
+          const SizedBox(height: 12),
+          _FunctionTile(
+            icon: Icons.event_note,
+            title: '考试安排',
+            subtitle: '查看考试时间与地点',
+            color: Colors.purple.shade100,
+            iconColor: Colors.purple,
+            onTap: () {
+              Navigator.of(
+                context,
+              ).push(SwipeBackPageRoute(page: const ExamPage()));
+            },
           ),
-          _FunctionCard(
-             icon: Icons.web, 
-             title: '办事大厅',
-             color: Colors.orange.shade100,
-             iconColor: Colors.orange,
-             onTap: () => _handleServiceHallTap(context),
+          const SizedBox(height: 12),
+          _FunctionTile(
+            icon: Icons.rate_review,
+            title: '选课评价',
+            subtitle: '查看课程评价与攻略',
+            color: Colors.pink.shade100,
+            iconColor: Colors.pink,
+            onTap: () {
+              Navigator.of(
+                context,
+              ).push(SwipeBackPageRoute(page: const CourseReviewsPage()));
+            },
           ),
-          _FunctionCard(
-             icon: Icons.forum, 
-             title: '果壳社区',
-             color: Colors.green.shade100,
-             iconColor: Colors.green,
-             onTap: () {
-               Navigator.of(context).push(
-                 MaterialPageRoute(
-                   builder: (_) => WebViewPage(
-                     url: 'https://gkder.ucas.ac.cn/',
-                     title: '果壳社区',
-                     settings: settings,
-                   ),
-                 ),
-               );
-             },
+          const SizedBox(height: 12),
+          _FunctionTile(
+            icon: Icons.bolt,
+            title: '自动抢课',
+            subtitle: '7x24小时全自动蹲课脚本',
+            color: Colors.red.shade100,
+            iconColor: Colors.red,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AutoSelectPage(settings: settings),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          _FunctionTile(
+            icon: Icons.web,
+            title: '办事大厅',
+            subtitle: '访问数字果壳办事大厅',
+            color: Colors.orange.shade100,
+            iconColor: Colors.orange,
+            onTap: () => _handleServiceHallTap(context),
+          ),
+          const SizedBox(height: 12),
+          _FunctionTile(
+            icon: Icons.forum,
+            title: '果壳社区',
+            subtitle: '浏览校园社区动态',
+            color: Colors.green.shade100,
+            iconColor: Colors.green,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => WebViewPage(
+                    url: 'https://gkder.ucas.ac.cn/',
+                    title: '果壳社区',
+                    settings: settings,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -111,10 +140,11 @@ class FunctionPage extends StatelessWidget {
   }
 }
 
-class _FunctionCard extends StatelessWidget {
-  const _FunctionCard({
+class _FunctionTile extends StatelessWidget {
+  const _FunctionTile({
     required this.icon,
     required this.title,
+    this.subtitle,
     required this.color,
     required this.iconColor,
     required this.onTap,
@@ -122,6 +152,7 @@ class _FunctionCard extends StatelessWidget {
 
   final IconData icon;
   final String title;
+  final String? subtitle;
   final Color color;
   final Color iconColor;
   final VoidCallback onTap;
@@ -132,23 +163,56 @@ class _FunctionCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.3),
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
           children: [
-            Icon(icon, size: 48, color: iconColor),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: iconColor.withOpacity(0.8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.3),
+                shape: BoxShape.circle,
               ),
+              child: Icon(icon, size: 28, color: iconColor),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Theme.of(context).colorScheme.outline,
             ),
           ],
         ),

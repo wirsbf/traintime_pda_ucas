@@ -49,10 +49,7 @@ class _PlaceholderPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Text(
-        '此页面预留给后续功能',
-        style: TextStyle(color: Color(0xFF94A3B8)),
-      ),
+      child: Text('此页面预留给后续功能', style: TextStyle(color: Color(0xFF94A3B8))),
     );
   }
 }
@@ -61,16 +58,14 @@ class _FadeIndexedStack extends StatefulWidget {
   final int index;
   final List<Widget> children;
 
-  const _FadeIndexedStack({
-    required this.index,
-    required this.children,
-  });
+  const _FadeIndexedStack({required this.index, required this.children});
 
   @override
   State<_FadeIndexedStack> createState() => _FadeIndexedStackState();
 }
 
-class _FadeIndexedStackState extends State<_FadeIndexedStack> with SingleTickerProviderStateMixin {
+class _FadeIndexedStackState extends State<_FadeIndexedStack>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
   int _lastIndex = 0;
@@ -83,10 +78,7 @@ class _FadeIndexedStackState extends State<_FadeIndexedStack> with SingleTickerP
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     _controller.value = 1.0;
   }
 
@@ -109,10 +101,7 @@ class _FadeIndexedStackState extends State<_FadeIndexedStack> with SingleTickerP
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _animation,
-      child: IndexedStack(
-        index: widget.index,
-        children: widget.children,
-      ),
+      child: IndexedStack(index: widget.index, children: widget.children),
     );
   }
 }
