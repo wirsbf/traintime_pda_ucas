@@ -25,6 +25,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      # 1. Setup Rust
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+        
+      - name: Build Rust for Android
+        run: |
+          cd rust
+          cargo ndk -t aarch64-linux-android -t armv7-linux-androideabi -t x86_64-linux-android -o ../android/app/src/main/jniLibs build --release
+          cd ..
+
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'

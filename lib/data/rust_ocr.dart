@@ -26,12 +26,15 @@ class RustOcr {
   static DynamicLibrary _loadLibrary() {
     if (Platform.isWindows) {
       return DynamicLibrary.open('rust_ocr.dll');
-    } else if (Platform.isLinux) {
+    } else if (Platform.isLinux || Platform.isAndroid) {
       return DynamicLibrary.open('librust_ocr.so');
     } else if (Platform.isMacOS) {
       return DynamicLibrary.open('librust_ocr.dylib');
+    } else if (Platform.isIOS) {
+       // iOS uses static linking
+      return DynamicLibrary.process();
     }
-    throw UnsupportedError('Unsupported platform');
+    throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
   }
 
   /// Get last error from Rust
