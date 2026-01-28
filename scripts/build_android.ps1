@@ -10,6 +10,11 @@ $ORT_AAR_URL = "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxrun
 $CACHE_DIR = "build_cache"
 $ANDROID_LIBS_OUT = "../android/app/src/main/jniLibs"
 
+# Clean stale jniLibs to prevent mixing architectures
+if (Test-Path $ANDROID_LIBS_OUT) {
+    Write-Host "Cleaning old jniLibs..."
+    Remove-Item -Recurse -Force $ANDROID_LIBS_OUT
+}
 # Ensure output dir exists
 if (-not (Test-Path $ANDROID_LIBS_OUT)) {
     New-Item -ItemType Directory -Force -Path $ANDROID_LIBS_OUT | Out-Null
