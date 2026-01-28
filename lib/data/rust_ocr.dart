@@ -26,7 +26,15 @@ class RustOcr {
   static DynamicLibrary _loadLibrary() {
     if (Platform.isWindows) {
       return DynamicLibrary.open('rust_ocr.dll');
-    } else if (Platform.isLinux || Platform.isAndroid) {
+    } else if (Platform.isLinux) {
+      return DynamicLibrary.open('librust_ocr.so');
+    } else if (Platform.isAndroid) {
+      try {
+        // Android often requires explicit loading of dependencies
+        DynamicLibrary.open('libonnxruntime.so');
+      } catch (e) {
+        print("Warning: Failed to load libonnxruntime.so: $e");
+      }
       return DynamicLibrary.open('librust_ocr.so');
     } else if (Platform.isMacOS) {
       return DynamicLibrary.open('librust_ocr.dylib');
