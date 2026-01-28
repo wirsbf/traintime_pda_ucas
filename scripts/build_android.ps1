@@ -22,15 +22,25 @@ if (-not (Test-Path $CACHE_DIR)) {
 
 # Download and Extract ORT AAR if needed
 $OrtAarPath = "$CACHE_DIR/onnxruntime.aar"
+$OrtZipPath = "$CACHE_DIR/onnxruntime.zip"
 $OrtExtractDir = "$CACHE_DIR/onnxruntime_extracted"
 
-if (-not (Test-Path $OrtExtractDir)) {
-    Write-Host "Downloading ONNX Runtime Android v$ORT_VERSION..."
-    Invoke-WebRequest -Uri $ORT_AAR_URL -OutFile $OrtAarPath
+# Check if we need to extract (if dir missing OR jni missing)
+if (-not (Test-Path "$OrtExtractDir/jni")) {
+    Write-Host "Downloading/Extracting ONNX Runtime Android v$ORT_VERSION..."
     
+    # Download if missing
+    if (-not (Test-Path $OrtZipPath)) {
+         Invoke-WebRequest -Uri $ORT_AAR_URL -OutFile $OrtZipPath
+    }
+    
+    # Clean extract dir if exists
+    if (Test-Path $OrtExtractDir) {
+        Remove-Item -Recurse -Force $OrtExtractDir
+    }
+
     Write-Host "Extracting AAR..."
-    # AAR is just a ZIP
-    Expand-Archive -Path $OrtAarPath -DestinationPath $OrtExtractDir -Force
+    Expand-Archive -Path $OrtZipPath -DestinationPath $OrtExtractDir -Force
 }
 
 # Build Rust libraries per target
@@ -76,6 +86,39 @@ foreach ($t in $Targets) {
         Write-Error "Build failed for $RustTarget"
         Pop-Location
         exit 1
+    }
+    
+    # Copy libonnxruntime.so to the same output directory
+    # cargo ndk -o outputs to: $ANDROID_LIBS_OUT/$AndroidAbi/librust_ocr.so
+    # So we copy to $ANDROID_LIBS_OUT/$AndroidAbi/
+    $DestDir = "$ANDROID_LIBS_OUT/$AndroidAbi"
+    if (-not (Test-Path $DestDir)) {
+         New-Item -ItemType Directory -Force -Path $DestDir | Out-Null
+    }
+    Copy-Item -Path "$OrtLibPath/libonnxruntime.so" -Destination "$DestDir/libonnxruntime.so" -Force
+    Write-Host "Copied libonnxruntime.so to $DestDir"
+    
+    # Try to copy libc++_shared.so from NDK (Generic attempt)
+    # Common NDK path: toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/lib/<triple>/libc++_shared.so
+    if ($env:ANDROID_NDK_HOME) {
+        $NdkRoot = $env:ANDROID_NDK_HOME
+        $Triple = $RustTarget
+        if ($RustTarget -eq "armv7-linux-androideabi") { $Triple = "arm-linux-androideabi" }
+        
+        # Search for libc++_shared.so recursively in NDK for this triple
+        # Limit depth to avoid long searches, usually in toolchains
+        $LibCxx = Get-ChildItem -Path "$NdkRoot/toolchains" -Filter "libc++_shared.so" -Recurse -ErrorAction SilentlyContinue | 
+                  Where-Object { $_.FullName -like "*$Triple*" } | 
+                  Select-Object -First 1
+        
+        if ($LibCxx) {
+             Copy-Item -Path $LibCxx.FullName -Destination "$DestDir/libc++_shared.so" -Force
+             Write-Host "Copied libc++_shared.so to $DestDir"
+        } else {
+             Write-Warning "Could not find libc++_shared.so for $Triple in NDK. App might crash if STL is missing."
+        }
+    } else {
+        Write-Warning "ANDROID_NDK_HOME not set. Skiping libc++_shared.so copy. Ensure NDK is configured."
     }
 }
 
