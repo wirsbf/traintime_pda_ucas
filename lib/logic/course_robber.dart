@@ -387,6 +387,9 @@ class CourseRobber extends ChangeNotifier {
     }
   }
 
+  // TFLite OCR instance (Removed)
+  // final TfliteLocalOcr _ocr = TfliteLocalOcr();
+
   Future<void> _attemptSelect(String sids, CourseTarget target) async {
     // Retry loop for captcha
     int retries = 0;
@@ -414,14 +417,15 @@ class CourseRobber extends ChangeNotifier {
         // Try OCR up to _maxOcrRetries times before asking for manual input
         for (int ocrAttempt = 1; ocrAttempt <= _maxOcrRetries; ocrAttempt++) {
           try {
+            // Use unified CaptchaOcr
             final ocrResult = await CaptchaOcr.instance.solveCaptcha(bytes);
+            
             if (ocrResult != null && ocrResult.length >= 4) {
               code = ocrResult;
               _log("验证码识别成功 (尝试 $ocrAttempt): $code");
               break;
             } else {
-              final err = CaptchaOcr.instance.lastError;
-              _log("OCR尝试 $ocrAttempt/$_maxOcrRetries 失败: ${err ?? '未知错误'}");
+              _log("OCR尝试 $ocrAttempt/$_maxOcrRetries 失败: 识别结果无效");
             }
           } catch (e) {
             _log("OCR尝试 $ocrAttempt/$_maxOcrRetries 异常: $e");

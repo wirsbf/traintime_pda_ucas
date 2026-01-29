@@ -29,13 +29,7 @@ class RustOcr {
     } else if (Platform.isLinux) {
       return DynamicLibrary.open('librust_ocr.so');
     } else if (Platform.isAndroid) {
-      try {
-        // Android often requires explicit loading of dependencies
-        DynamicLibrary.open('libonnxruntime.so');
-      } catch (e) {
-        print("Warning: Failed to load libonnxruntime.so: $e");
-      }
-      return DynamicLibrary.open('librust_ocr.so');
+      throw UnsupportedError('RustOcr is not supported on Android (use OcrService/ONNX instead)');
     } else if (Platform.isMacOS) {
       return DynamicLibrary.open('librust_ocr.dylib');
     } else if (Platform.isIOS) {

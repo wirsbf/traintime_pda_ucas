@@ -87,5 +87,15 @@ test/
 tmp/
 
 # Custom Assets/Models (if downloaded)
-assets/*.onnx
+# Custom Assets/Models
 assets/*.tflite
+# Allow ddddocr
+!assets/ddddocr.onnx
+!assets/ddddocr_vocab.json
+
+# Build cache
+build_cache/
+captcha_model.tflite
+
+# Native Libs (Should use gradle/pod to fetch)
+android/app/src/main/jniLibs/

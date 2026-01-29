@@ -26,22 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 1. Setup Rust
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
-          
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk
-        
-      - name: Build Rust for Android
-        run: |
-          cd rust
-          cargo ndk -t aarch64-linux-android -t armv7-linux-androideabi -t x86_64-linux-android -o ../android/app/src/main/jniLibs build --release
-          cd ..
-
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
@@ -52,6 +36,7 @@ jobs:
           channel: 'stable'
           cache: true
       - run: flutter pub get
+      
       - name: Decode Keystore
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -59,7 +44,9 @@ jobs:
           if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
             echo "$RELEASE_KEYSTORE_BASE64" | tr -d '\n\r ' | base64 -d > android/app/release.jks
           fi
+          
       - run: flutter build apk --release
+      
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
