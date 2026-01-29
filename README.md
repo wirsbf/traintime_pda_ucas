@@ -82,4 +82,5 @@ UI 及核心架构代码版权归原作者 [BenderBlog](https://github.com/Bende
 
 *   **[BenderBlog/traintime_pda](https://github.com/BenderBlog/traintime_pda)**: 原项目，提供了非常优秀的 UI 框架和设计思路。
 *   **[sml2h3/ddddocr](https://github.com/sml2h3/ddddocr)**: 优秀的通用验证码识别模型。
+*   **[UCAS-Course-Reviews](https://github.com/2654400439/UCAS-Course-Reviews)**: 感谢社区维护的课程评价共享平台。
 
