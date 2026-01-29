@@ -60,14 +60,23 @@ flutter run
 flutter build apk --release
 
 # Windows
+# 注意: 需下载 onnxruntime.dll (v1.16.3+) 并放置于构建产物目录下 (windows/runner/ 或 release 目录)
 flutter build windows --release
 
 # Linux (需安装 clang cmake ninja-build pkg-config libgtk-3-dev)
+# 注意: 需下载 libonnxruntime.so (v1.16.3+) 并放置于构建产物目录下
 flutter build linux --release
 
 # macOS (需 Xcode 环境)
+# 注意: 需下载 libonnxruntime.dylib (v1.16.3+) 并放置于构建产物目录下
 flutter build macos --release
 ```
+
+### 🤖 自动化构建 (GitHub Actions)
+本项目配置了完整的 GitHub Actions 工作流。只需 Push 代码到 GitHub，即可触发自动构建并发布 Release。
+- **Android**: 自动签名 (需配置 Secrets)
+- **Windows/Linux/macOS**: 自动下载 ONNX Runtime 库并打包
+- **iOS**: 生成未签名 ipa
 
 ## 📄 授权信息 (License)
 

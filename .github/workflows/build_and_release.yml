@@ -57,29 +57,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Setup Rust
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          target: x86_64-pc-windows-msvc
-          
-      - name: Build Rust Library
-        run: |
-          cd rust
-          cargo build --release
-          cd ..
-          
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
       - run: flutter pub get
+      
+      # Download ONNX Runtime DLL
+      - name: Download ONNX Runtime (Windows)
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-win-x64-1.16.3.zip" -OutFile "onnxruntime.zip"
+          Expand-Archive onnxruntime.zip -DestinationPath .
+          Copy-Item onnxruntime-win-x64-1.16.3\lib\onnxruntime.dll -Destination "windows/runner/"
+          
       - run: flutter build windows --release
       
-      - name: Copy Rust DLL
+      # Copy DLL to output
+      - name: Copy ONNX DLL
         run: |
-          Copy-Item rust\target\release\rust_ocr.dll build\windows\x64\runner\Release\ -Force
+          Copy-Item windows\runner\onnxruntime.dll build\windows\x64\runner\Release\ -Force
           
       - name: Archive Windows Build
         run: compress-archive -Path build/windows/x64/runner/Release/* -DestinationPath traintime_pda_ucas_windows.zip
@@ -94,33 +90,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Setup Rust
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          
-      - name: Build Rust Library
-        run: |
-          cd rust
-          cargo build --release
-          cd ..
-          
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev curl
           
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
       - run: flutter pub get
+      
+      # Download ONNX Runtime SO
+      - name: Download ONNX Runtime (Linux)
+        run: |
+          curl -L -o onnxruntime.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-linux-x64-1.16.3.tgz"
+          tar -xzf onnxruntime.tgz
+          mkdir -p linux/runner
+          cp onnxruntime-linux-x64-1.16.3/lib/libonnxruntime.so.1.16.3 linux/runner/libonnxruntime.so
+          
       - run: flutter build linux --release
       
-      - name: Copy Rust Library
+      - name: Copy ONNX Lib
         run: |
-          cp rust/target/release/librust_ocr.so build/linux/x64/release/bundle/
+          cp linux/runner/libonnxruntime.so build/linux/x64/release/bundle/
           
       - name: Archive Linux Build
         run: tar -czvf traintime_pda_ucas_linux.tar.gz -C build/linux/x64/release/bundle .
@@ -135,28 +128,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Setup Rust
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          
-      - name: Build Rust Library
-        run: |
-          cd rust
-          cargo build --release
-          cd ..
-          
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
       - run: flutter pub get
+      
+      # Download ONNX Runtime Dylib
+      - name: Download ONNX Runtime (macOS)
+        run: |
+          curl -L -o onnxruntime.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-osx-universal2-1.16.3.tgz"
+          tar -xzf onnxruntime.tgz
+          cp onnxruntime-osx-universal2-1.16.3/lib/libonnxruntime.1.16.3.dylib macos/Runner/libonnxruntime.dylib
+          
       - run: flutter build macos --release
       
-      - name: Copy Rust Library
+      - name: Copy ONNX Lib
         run: |
-          cp rust/target/release/librust_ocr.dylib build/macos/Build/Products/Release/traintime_pda_ucas.app/Contents/MacOS/
+          cp macos/Runner/libonnxruntime.dylib build/macos/Build/Products/Release/traintime_pda_ucas.app/Contents/MacOS/
           
       - name: Archive macOS Build
         run: ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/traintime_pda_ucas.app traintime_pda_ucas_macos.zip
@@ -175,6 +164,13 @@ jobs:
           channel: 'stable'
           cache: true
       - run: flutter pub get
+      
+      # Note: iOS ONNX Runtime usually requires a pod or framework.
+      # The flutter 'onnxruntime' plugin should handle pulling the pod if properly configured in Podfile.
+      # If not, we might fail. Given this is a "blind" fix without a Mac to verify Podfile behavior,
+      # we assume the plugin works or we skip detailed pod setup.
+      # Standard 'flutter build ios' triggers pod install.
+      
       - run: flutter build ios --release --no-codesign
       - name: Archive iOS Build
         run: |

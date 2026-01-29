@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'rust_ocr.dart';
 import '../services/ocr_service.dart';
 
 /// Unified captcha OCR service that selects implementation based on platform.
@@ -26,30 +25,16 @@ class CaptchaOcr {
   /// Returns the recognized text, or null if recognition failed.
   Future<String?> solveCaptcha(Uint8List imageBytes) async {
     _lastError = null;
-
-    if (Platform.isAndroid) {
-      return _solveCaptchaWithOnnx(imageBytes);
-    } else {
-      // Windows, Linux, macOS, iOS - use Rust
-      return _solveCaptchaWithRust(imageBytes);
-    }
+    // Unified ONNX implementation for ALL platforms
+    return _solveCaptchaWithOnnx(imageBytes);
   }
 
-  /// Use Rust OCR (ddddocr) for captcha recognition.
-  String? _solveCaptchaWithRust(Uint8List imageBytes) {
-    try {
-      final result = RustOcr.instance.solveCaptcha(imageBytes);
-      if (result == null) {
-        _lastError = RustOcr.instance.getLastError() ?? 'Rust OCR returned null';
-      }
-      return result;
-    } catch (e) {
-      _lastError = 'Rust OCR exception: $e';
-      return null;
-    }
-  }
+  /* 
+  /// Legacy Rust OCR (Removed)
+  String? _solveCaptchaWithRust(Uint8List imageBytes) { ... }
+  */
 
-  /// Use custom trained ONNX CRNN model for Android.
+  /// Use custom trained ONNX CRNN model (now ddddocr) for ALL platforms.
   Future<String?> _solveCaptchaWithOnnx(Uint8List imageBytes) async {
     try {
       // Initialize service if needed
