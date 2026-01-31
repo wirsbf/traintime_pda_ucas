@@ -57,18 +57,6 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
-# === Rust OCR Integration ===
-# Build Rust library before the main app
-set(RUST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../rust")
-if(EXISTS "${RUST_SOURCE_DIR}/Cargo.toml")
-  add_custom_target(build_rust_ocr ALL
-    COMMAND cargo build --release
-    WORKING_DIRECTORY ${RUST_SOURCE_DIR}
-    COMMENT "Building Rust OCR library..."
-    VERBATIM
-  )
-  add_dependencies(${BINARY_NAME} build_rust_ocr)
-endif()
 
 
 
@@ -101,10 +89,10 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
-# Install Rust DLL
-set(RUST_DLL "${CMAKE_CURRENT_SOURCE_DIR}/../rust/target/release/rust_ocr.dll")
-if(EXISTS "${RUST_DLL}")
-  install(FILES "${RUST_DLL}"
+# Install ONNX Runtime DLL (if manually placed in runner)
+set(ONNX_DLL "${CMAKE_CURRENT_SOURCE_DIR}/runner/onnxruntime.dll")
+if(EXISTS "${ONNX_DLL}")
+  install(FILES "${ONNX_DLL}"
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
