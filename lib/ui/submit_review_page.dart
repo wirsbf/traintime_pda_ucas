@@ -15,7 +15,7 @@ class DraftReview {
   bool collapsed;
 
   DraftReview(this.raw)
-    : instructors = "",
+    : instructors = raw.instructors, // Initialize from parsed data
       value = 4,
       passDifficulty = 3,
       highScoreDifficulty = 3,
@@ -40,6 +40,19 @@ class _SubmitReviewPageState extends State<SubmitReviewPage> {
   List<String> _warnings = [];
 
   static const String _reviewSubmitUrl = "https://wj.qq.com/s2/13594132/3f08/";
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to text changes to enable/disable parse button
+    _tsvController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tsvController.dispose();
+    super.dispose();
+  }
 
   void _parse() {
     final tsv = _tsvController.text;

@@ -4,8 +4,9 @@ class ParsedCourseRow {
   final String? courseCode;
   final String courseName;
   final double credits;
-  final boolean isDegreeCourse;
+  final bool isDegreeCourse;
   final String term;
+  final String instructors; // Added instructor field
 
   ParsedCourseRow({
     this.courseCode,
@@ -13,6 +14,7 @@ class ParsedCourseRow {
     required this.credits,
     required this.isDegreeCourse,
     required this.term,
+    this.instructors = '',
   });
 }
 
@@ -72,12 +74,14 @@ ParseResult parseSelectedCoursesTSV(String raw) {
   final creditsIdx = idx("学分");
   final degreeIdx = idx("学位课");
   final termIdx = idx("学期");
+  final instructorsIdx = idx("主讲教师"); // Added instructor column
 
-  final hasHeader = courseNameIdx >= 0 && creditsIdx >= 0 && termIdx >= 0;
+  // Only require courseName and credits for hasHeader (term may not exist in some tables)
+  final hasHeader = courseNameIdx >= 0 && creditsIdx >= 0;
   final startLine = hasHeader ? 1 : 0;
 
   if (!hasHeader) {
-    warnings.add("未识别到表头（课程名称/学分/学期）。将按列顺序尝试解析。");
+    warnings.add("未识别到表头（课程名称/学分）。将按列顺序尝试解析。");
   }
 
   final rows = <ParsedCourseRow>[];
@@ -89,12 +93,13 @@ ParseResult parseSelectedCoursesTSV(String raw) {
     String get(int j, [String fallback = ""]) =>
         (j >= 0 && j < row.length) ? row[j] : fallback;
 
-    // Fallback indices: 0 序号, 1 课程编码, 2 课程名称, 3 学分, 4 学位课, 5 学期
-    final cc = normalizeText(get(courseCodeIdx >= 0 ? courseCodeIdx : 1));
-    final cn = normalizeText(get(courseNameIdx >= 0 ? courseNameIdx : 2));
+    // Fallback indices: 0 课程编码, 1 课程名称, 2 课时, 3 学分, 4 学位课, 5 考试方式, 6 主讲教师
+    final cc = normalizeText(get(courseCodeIdx >= 0 ? courseCodeIdx : 0));
+    final cn = normalizeText(get(courseNameIdx >= 0 ? courseNameIdx : 1));
     final cr = _parseCredits(get(creditsIdx >= 0 ? creditsIdx : 3));
     final dg = _parseBoolCN(get(degreeIdx >= 0 ? degreeIdx : 4));
-    final tm = normalizeText(get(termIdx >= 0 ? termIdx : 5));
+    final tm = normalizeText(get(termIdx >= 0 ? termIdx : -1)); // May not exist
+    final inst = normalizeText(get(instructorsIdx >= 0 ? instructorsIdx : 6)); // Instructor
 
     if (cn.isEmpty) continue;
 
@@ -104,14 +109,16 @@ ParseResult parseSelectedCoursesTSV(String raw) {
         courseName: cn,
         credits: cr,
         isDegreeCourse: dg,
-        term: tm,
+        term: tm.isEmpty ? '未知学期' : tm,
+        instructors: inst.replaceAll('等', ''), // Remove trailing "等"
       ),
     );
   }
 
   if (rows.isEmpty) {
-    warnings.add("解析结果为空：请确认复制内容包含课程行（含课程名称/学期等列）");
+    warnings.add("解析结果为空：请确认复制内容包含课程行（含课程名称/学分等列）");
   }
 
   return ParseResult(rows, warnings);
 }
+

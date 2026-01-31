@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'data/settings_controller.dart';
 import 'ui/splash_page.dart';
 
 Future<void> main() async {

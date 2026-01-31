@@ -76,12 +76,29 @@ class UcasClient {
   static const String _jwxkBase = 'https://jwxk.ucas.ac.cn';
   static const String _xkgoBase = 'https://xkgo.ucas.ac.cn:3000';
 
+  String get _currentXkgoBase {
+    final month = DateTime.now().month;
+    // Jan(1) - July(7) -> Spring -> xkgo:3000
+    // Aug(8) - Dec(12) -> Autumn -> xkgodj
+    if (month >= 8) {
+      return _xkgodjBase;
+    } else {
+      return _xkgoBase;
+    }
+  }
+
   Future<void> login(
     String username,
     String password, {
     String? captchaCode,
   }) async {
     await _sepLogin(username, password, captchaCode: captchaCode);
+  }
+
+  /// Manually set session ID for xkgo (port 3000) or xkgodj
+  Future<void> setSessionId(String sessionId) async {
+    final cookie = Cookie('session_id', sessionId);
+    await _cookieJar.saveFromResponse(Uri.parse(_currentXkgoBase), [cookie]);
   }
 
   Future<Schedule> fetchSchedule(
@@ -1007,9 +1024,12 @@ class UcasClient {
       redirectUrl = '$_sepBase$redirectUrl';
     }
 
+    // Follow redirect to establish session (if any)
     await _getFollow(redirectUrl);
+    
+    // Force target to current xkgo base (seasonal)
     final scheduleResponse = await _getFollow(
-      '$_xkgodjBase/course/personSchedule',
+      '$_currentXkgoBase/course/personSchedule',
     );
     return scheduleResponse.data ?? '';
   }
@@ -1239,6 +1259,11 @@ class UcasClient {
             final name = getCell(idxName != -1 ? idxName : 0);
             // Verify this is a valid row (sometimes first col is ID or checkbox)
             if (name.isEmpty || name.contains('姓名') || name == '课程名称') continue;
+
+            // Filter out specific invalid score message
+            if (name.contains('对不起，博士学位英语（免修考试）的成绩为')) {
+              continue;
+            }
 
             // Fallback for crucial fields if indices failed to map (e.g. strict order)
             // If idxScore is -1, try to find numeric or known string
@@ -1611,6 +1636,20 @@ class UcasClient {
     // We strip the path to get the origin.
     _dynamicXkgoBase =
         '${finalUri.scheme}://${finalUri.host}${finalUri.hasPort ? ":${finalUri.port}" : ""}';
+
+    // Force override if it resolved to something else but we want to be safe, 
+    // or just trust the discovery. 
+    // User requested "Modify xkgo logic... borrowing snippet" -> Snippet uses xkgo...:3000.
+    // If discovery gave us xkgodj, we might want to override.
+    if (_dynamicXkgoBase!.contains('xkgo') || _dynamicXkgoBase!.contains('xkgodj')) {
+       // Re-apply seasonal logic to ensure we use the preferred one 
+       // even if redirect led us elsewhere (or update local ref to what redirect gave us?)
+       // Actually, usually redirect gives the correct semester's system.
+       // But user explicitly wants:
+       // 8-12月用xkgodj那一套，1月-6月用xkgo这一套
+       // So we force it.
+       _dynamicXkgoBase = _currentXkgoBase;
+    }
 
     print('DEBUG: Discovered Course System URL: $_dynamicXkgoBase');
   }
