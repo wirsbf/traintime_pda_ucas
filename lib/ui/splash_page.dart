@@ -37,32 +37,54 @@ class _SplashPageState extends State<SplashPage> {
       return;
     }
 
-    // 2. Auto Login & Pre-load
+    // 2. Initialize Client (Pre-fetch all sessions)
     try {
-      setState(() => _status = '正在验证身份...');
-      
-      // Attempt login
-      await LoginHelper().loginWithAutoOcr(
-        widget.settings.username,
-        widget.settings.password,
-        onManualCaptchaNeeded: mounted ? (img) => showCaptchaDialog(context, img) : null,
-      );
-
       setState(() {
-        _status = '正在同步数据...';
+        _status = '正在验证身份...';
         _progress = 0.2;
       });
 
-      // 3. Fetch Data in Parallel
-      final client = UcasClient();
+      final client = UcasClient.instance;
       
-      // We wrap fetches to handle errors individually so one failure doesn't stop others
-      // and we can still enter the app.
-      
-      final fetchSchedule = client.fetchSchedule(
-        widget.settings.username, 
-        widget.settings.password
-      ).then((val) {
+      // Use initialize() to pre-authenticate all systems
+      try {
+        await client.initialize(
+          widget.settings.username,
+          widget.settings.password,
+        );
+        
+        setState(() {
+          _status = '正在同步数据...';
+          _progress = 0.5;
+        });
+      } on CaptchaRequiredException catch (e) {
+        // Handle captcha if needed during initialization
+        if (mounted) {
+          final code = await showCaptchaDialog(context, e.image);
+          if (code != null) {
+            // Retry with captcha
+            await LoginHelper().loginWithAutoOcr(
+              widget.settings.username,
+              widget.settings.password,
+              onManualCaptchaNeeded: mounted ? (img) => showCaptchaDialog(context, img) : null,
+            );
+          } else {
+            // User cancelled captcha - proceed anyway, pages will handle it
+            debugPrint('Captcha cancelled during initialization');
+          }
+        }
+      } catch (e) {
+        debugPrint('Initialization warning: $e');
+        // Continue - individual pages will auto-retry
+      }
+
+      setState(() {
+        _status = '正在加载数据...';
+        _progress = 0.6;
+      });
+
+      // 3. Fetch Data in Parallel (using cached sessions)
+      final fetchSchedule = client.fetchSchedule().then((val) {
         CacheManager().saveSchedule(val);
         return true;
       }).catchError((e) {
@@ -70,10 +92,7 @@ class _SplashPageState extends State<SplashPage> {
         return false;
       });
 
-      final fetchLectures = client.fetchLectures(
-        widget.settings.username, 
-        widget.settings.password
-      ).then((val) {
+      final fetchLectures = client.fetchLectures().then((val) {
         CacheManager().saveLectures(val);
         return true;
       }).catchError((e) {
@@ -81,10 +100,7 @@ class _SplashPageState extends State<SplashPage> {
         return false;
       });
 
-      final fetchExams = client.fetchExams(
-        widget.settings.username, 
-        widget.settings.password
-      ).then((val) {
+      final fetchExams = client.fetchExams().then((val) {
         CacheManager().saveExams(val);
         return true;
       }).catchError((e) {
@@ -92,25 +108,24 @@ class _SplashPageState extends State<SplashPage> {
         return false;
       });
 
-      // Wait for all
+      // Wait for all fetches
       final results = await Future.wait([fetchSchedule, fetchLectures, fetchExams]);
       
-      // If at least one succeeded, update timestamp
+      // Update cache timestamp if at least one succeeded
       if (results.any((success) => success)) {
         await CacheManager().saveLastUpdateTime();
       }
 
     } catch (e) {
       debugPrint('Splash Error: $e');
-      // If login fails or crucial error, we usually still go to Home 
-      // and let Dashboard show cached or empty state (or let it retry).
-      // But if login failed (e.g. wrong password), Dashboard will handle re-login UI if needed?
-      // Actually Dashboard will just retry or show error.
-      // Better to proceed to HomeShell.
+      // Proceed to app - Dashboard will show cached data or retry UI
     } finally {
       if (mounted) {
-        setState(() => _progress = 1.0);
-        // Small delay to let user see "Done"
+        setState(() {
+          _status = '完成！';
+          _progress = 1.0;
+        });
+        // Small delay for visual feedback
         await Future.delayed(const Duration(milliseconds: 500));
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
@@ -155,11 +170,11 @@ class _SplashPageState extends State<SplashPage> {
               ),
             ),
             const SizedBox(height: 48),
-            // Status & Loading
+            // Progress Bar
             SizedBox(
               width: 200,
               child: LinearProgressIndicator(
-                value: _progress > 0 ? null : null, // Indeterminate until progress
+                value: _progress > 0 ? _progress : null,
                 backgroundColor: Colors.grey[200],
               ),
             ),

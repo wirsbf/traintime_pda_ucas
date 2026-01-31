@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'ucas_client.dart';
 import 'captcha_ocr.dart';

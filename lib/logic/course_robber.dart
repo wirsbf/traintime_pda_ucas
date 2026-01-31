@@ -80,7 +80,8 @@ class SearchResult {
 
 
 class CourseRobber extends ChangeNotifier {
-  final UcasClient _client = UcasClient();
+  // Use singleton instance instead of creating new client
+  UcasClient get _client => UcasClient.instance;
   final SettingsController _settings;
 
   /// Maximum OCR attempts before requesting manual input
@@ -239,8 +240,9 @@ class CourseRobber extends ChangeNotifier {
     _log("开始抢课任务...");
     notifyListeners();
 
-    // Check login first
+    // Check login - uses cached session from initialization
     try {
+      // Login no longer needs credentials - uses cached session
       await _client.login(_settings.username, _settings.password);
       _log("登录成功");
     } catch (e) {

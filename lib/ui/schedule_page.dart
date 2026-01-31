@@ -151,12 +151,8 @@ class _SchedulePageState extends State<SchedulePage> {
     });
 
     try {
-      // 1. Fetch Schedule
-      final schedule = await UcasClient().fetchSchedule(
-        widget.settings.username,
-        widget.settings.password,
-        captchaCode: captchaCode,
-      );
+      // 1. Fetch Schedule (uses cached session, auto-retry if expired)
+      final schedule = await UcasClient.instance.fetchSchedule();
       if (mounted) {
         setState(() => _schedule = schedule);
         CacheManager().saveSchedule(schedule);
@@ -164,10 +160,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
       // 2. Fetch Exams (Optional but good to refresh)
       try {
-        final exams = await UcasClient().fetchExams(
-          widget.settings.username,
-          widget.settings.password,
-        );
+        final exams = await UcasClient.instance.fetchExams();
         CacheManager().saveExams(exams);
         if (mounted) setState(() => _exams = exams);
       } catch (_) {}

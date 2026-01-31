@@ -50,15 +50,8 @@ class _ExamPageState extends State<ExamPage> {
     });
 
     try {
-      final settings = await SettingsController.load();
-      if (settings.username.isEmpty || settings.password.isEmpty) {
-        throw Exception('请先在设置中填写账号密码');
-      }
-      final exams = await UcasClient().fetchExams(
-        settings.username,
-        settings.password,
-        captchaCode: captchaCode,
-      );
+      // Fetch exams using cached session (auto-retry if session expired)
+      final exams = await UcasClient.instance.fetchExams();
 
       // Sort exams: Future > Past > TBD
       // Within group: Date Ascending

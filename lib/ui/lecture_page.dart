@@ -86,19 +86,11 @@ class _LecturePageState extends State<LecturePage> {
     });
 
     try {
-      final settings = await SettingsController.load();
-      if (settings.username.isEmpty || settings.password.isEmpty) {
-        throw Exception('请先在设置中填写账号密码');
-      }
-
       // Refresh added status first
       await _refreshAddedStatus();
 
-      final lectures = await UcasClient().fetchLectures(
-        settings.username,
-        settings.password,
-        captchaCode: captchaCode,
-      );
+      // Fetch lectures using cached session (auto-retry if session expired)
+      final lectures = await UcasClient.instance.fetchLectures();
 
       // Filter for future lectures
       final now = DateTime.now();

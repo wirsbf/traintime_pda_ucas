@@ -38,15 +38,8 @@ class _ScorePageState extends State<ScorePage> {
     });
 
     try {
-      final settings = await SettingsController.load();
-      if (settings.username.isEmpty || settings.password.isEmpty) {
-        throw Exception('请先在设置中填写账号密码');
-      }
-      final scores = await UcasClient().fetchScores(
-        settings.username,
-        settings.password,
-        captchaCode: captchaCode,
-      );
+      // Fetch scores using cached session (auto-retry if session expired)
+      final scores = await UcasClient.instance.fetchScores();
       setState(() {
         _scores = scores;
       });

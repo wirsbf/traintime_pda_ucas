@@ -34,7 +34,7 @@ class _LectureDetailDialogState extends State<LectureDetailDialog> {
 
   Future<void> _fetchDetail() async {
     try {
-      final detail = await UcasClient().fetchLectureDetail(
+      final detail = await UcasClient.instance.fetchLectureDetail(
         widget.lecture.id,
         username: widget.settings.username,
         password: widget.settings.password,

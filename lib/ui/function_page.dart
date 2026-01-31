@@ -25,7 +25,7 @@ class FunctionPage extends StatelessWidget {
     try {
       // Force refresh session (auto-login) to ensure cookies are valid for Service Hall
       if (settings.username.isNotEmpty && settings.password.isNotEmpty) {
-        await UcasClient().login(settings.username, settings.password);
+        await UcasClient.instance.login(settings.username, settings.password);
       }
     } catch (e) {
       debugPrint('Auto-login failed: $e');

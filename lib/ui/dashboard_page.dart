@@ -44,11 +44,9 @@ class _DashboardPageState extends State<DashboardPage>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    // 1. Load cache first for instant display
-    _loadCache().then((_) {
-      // 2. Then fetch fresh data
-      _fetchData();
-    });
+    // Prioritize real-time data - fetch immediately
+    // Cache is loaded as fallback only on fetch failure
+    _fetchData();
     _animController.forward();
   }
 
@@ -99,19 +97,31 @@ class _DashboardPageState extends State<DashboardPage>
       if (captchaImage != null) {
         // Manual input was cancelled
         debugPrint('Login cancelled by user');
+        if (mounted) {
+           setState(() {
+             _loadingSchedule = false;
+             _loadingLectures = false;
+           });
+        }
         return;
       }
     } catch (e) {
       debugPrint('Login failed: $e');
-      // Continue if we have cache
+      if (mounted) {
+          setState(() {
+            _loadingSchedule = false;
+            _loadingLectures = false;
+          });
+      }
+      return; // Stop if login definitely failed
     }
 
     // 2. Check Cache
     if (!force) {
       final lastUpdate = await CacheManager().getLastUpdateTime();
       final now = DateTime.now().millisecondsSinceEpoch;
-      // Reduce cache validity to 1 hour to ensure fresh data on resume (if backgrounded long)
-      if (now - lastUpdate < 1 * 3600 * 1000) {
+      // Reduce cache validity to 5 minutes to ensure fresh data on resume
+      if (now - lastUpdate < 5 * 60 * 1000) {
         if (_schedule != null && _lectures != null) return;
       }
     }
@@ -135,14 +145,17 @@ class _DashboardPageState extends State<DashboardPage>
 
   Future<void> _fetchExams() async {
     try {
-      final exams = await UcasClient().fetchExams(
-        widget.settings.username,
-        widget.settings.password,
-      );
+      // Fetch exams using cached session (auto-retry if session expired)
+      final exams = await UcasClient.instance.fetchExams();
       CacheManager().saveExams(exams);
       if (mounted) setState(() => _exams = exams);
     } catch (e) {
-      debugPrint('Exam Fetch Error: $e');
+      debugPrint('Exam Fetch Error: $e - Loading from cache');
+      // Fallback to cache on error
+      final cachedExams = await CacheManager().getExams();
+      if (mounted && cachedExams.isNotEmpty) {
+        setState(() => _exams = cachedExams);
+      }
     }
   }
 
@@ -170,11 +183,8 @@ class _DashboardPageState extends State<DashboardPage>
   Future<void> _fetchSchedule({String? captchaCode}) async {
     setState(() => _loadingSchedule = true);
     try {
-      final schedule = await UcasClient().fetchSchedule(
-        widget.settings.username,
-        widget.settings.password,
-        captchaCode: captchaCode,
-      );
+      // Fetch schedule using cached session (auto-retry if session expired)
+      final schedule = await UcasClient.instance.fetchSchedule();
       if (mounted) {
         setState(() {
           _schedule = schedule;
@@ -192,8 +202,12 @@ class _DashboardPageState extends State<DashboardPage>
         }
       }
     } catch (e) {
-      // Ignore errors for dashboard, just don't show data
-      debugPrint('Schedule Fetch Error: $e');
+      debugPrint('Schedule Fetch Error: $e - Loading from cache');
+      // Fallback to cache on error
+      final cachedSchedule = await CacheManager().getSchedule();
+      if (mounted && cachedSchedule != null) {
+        setState(() => _schedule = cachedSchedule);
+      }
     } finally {
       if (mounted) setState(() => _loadingSchedule = false);
     }
@@ -202,11 +216,8 @@ class _DashboardPageState extends State<DashboardPage>
   Future<void> _fetchLectures({String? captchaCode}) async {
     setState(() => _loadingLectures = true);
     try {
-      final lectures = await UcasClient().fetchLectures(
-        widget.settings.username,
-        widget.settings.password,
-        captchaCode: captchaCode,
-      );
+      // Fetch lectures using cached session (auto-retry if session expired)
+      final lectures = await UcasClient.instance.fetchLectures();
 
       // Filter >= Today
       final now = DateTime.now();
@@ -226,9 +237,11 @@ class _DashboardPageState extends State<DashboardPage>
       if (mounted) {
         _processLectures(filtered);
         setState(() => _isLecturesRealtime = true);
-        CacheManager().saveLectures(
-          lectures,
-        );
+        // Only save to cache if we actually got lectures
+        // or if we're sure it's an empty list but a successful fetch
+        if (lectures.isNotEmpty) {
+          CacheManager().saveLectures(lectures);
+        }
       }
     } on CaptchaRequiredException catch (e) {
       if (mounted) {
@@ -240,7 +253,12 @@ class _DashboardPageState extends State<DashboardPage>
         }
       }
     } catch (e) {
-      debugPrint('Lecture Fetch Error: $e');
+      debugPrint('Lecture Fetch Error: $e - Loading from cache');
+      // Fallback to cache on error
+      final cachedLectures = await CacheManager().getLectures();
+      if (mounted && cachedLectures.isNotEmpty) {
+        _processLectures(cachedLectures);
+      }
     } finally {
       if (mounted) setState(() => _loadingLectures = false);
     }

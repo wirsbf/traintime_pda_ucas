@@ -60,7 +60,7 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      await UcasClient().login(username, password, captchaCode: captchaCode);
+      await UcasClient.instance.login(username, password, captchaCode: captchaCode);
 
       // Save credentials (full email)
       widget.settings.updateUsername(username);
