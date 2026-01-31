@@ -28,6 +28,8 @@ class _DashboardPageState extends State<DashboardPage>
   List<Lecture>? _lectures;
   bool _loadingSchedule = false;
   bool _loadingLectures = false;
+  bool _isScheduleRealtime = false;
+  bool _isLecturesRealtime = false;
   List<Exam>? _exams;
   List<Course> _customCourses = [];
   String? _error;
@@ -42,7 +44,11 @@ class _DashboardPageState extends State<DashboardPage>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _fetchData();
+    // 1. Load cache first for instant display
+    _loadCache().then((_) {
+      // 2. Then fetch fresh data
+      _fetchData();
+    });
     _animController.forward();
   }
 
@@ -170,7 +176,10 @@ class _DashboardPageState extends State<DashboardPage>
         captchaCode: captchaCode,
       );
       if (mounted) {
-        setState(() => _schedule = schedule);
+        setState(() {
+          _schedule = schedule;
+          _isScheduleRealtime = true;
+        });
         CacheManager().saveSchedule(schedule);
       }
     } on CaptchaRequiredException catch (e) {
@@ -216,12 +225,10 @@ class _DashboardPageState extends State<DashboardPage>
 
       if (mounted) {
         _processLectures(filtered);
+        setState(() => _isLecturesRealtime = true);
         CacheManager().saveLectures(
           lectures,
-        ); // Save raw or filtered? Saving lectures result (all) is better usually, but here filtered
-        // Logic check: fetchLectures returns full list. Filter happens here.
-        // We should save full list from fetch? Yes.
-        // But fetchLectures returns list.
+        );
       }
     } on CaptchaRequiredException catch (e) {
       if (mounted) {
@@ -253,9 +260,15 @@ class _DashboardPageState extends State<DashboardPage>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '今日课程',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      const Text(
+                        '今日课程',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildStatusBadge(_isScheduleRealtime, _loadingSchedule),
+                    ],
                   ),
                   IconButton(
                     onPressed: _onRefresh,
@@ -291,7 +304,11 @@ class _DashboardPageState extends State<DashboardPage>
                     ),
                   );
                 },
-                child: _buildSectionHeader('近期讲座'),
+                child: _buildSectionHeader(
+                  '近期讲座',
+                  isRealtime: _isLecturesRealtime,
+                  isLoading: _loadingLectures,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -302,21 +319,63 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(String title, {bool isRealtime = false, bool isLoading = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 8),
+            _buildStatusBadge(isRealtime, isLoading),
+          ],
         ),
         const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
       ],
     );
   }
 
+  Widget _buildStatusBadge(bool isRealtime, bool isLoading) {
+    if (isLoading) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const SizedBox(
+          width: 10,
+          height: 10,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isRealtime ? Colors.green.shade50 : Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isRealtime ? Colors.green.shade200 : Colors.orange.shade200,
+        ),
+      ),
+      child: Text(
+        isRealtime ? '实时' : '缓存',
+        style: TextStyle(
+          fontSize: 10,
+          color: isRealtime ? Colors.green.shade700 : Colors.orange.shade700,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTodayCourses() {
-    if (_loadingSchedule) {
+    // Only show full-screen loader if we have NO data at all
+    if (_loadingSchedule && _schedule == null) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(20),
@@ -540,7 +599,8 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildLecturesList() {
-    if (_loadingLectures) {
+    // Only show loader if we have NO data
+    if (_loadingLectures && (_lectures == null || _lectures!.isEmpty)) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(20),
