@@ -1,18 +1,23 @@
 name: Build and Release
 
 on:
+  push:
+    branches:
+      - main
+      - master
   workflow_dispatch:
     inputs:
-      tag_name:
-        description: 'Tag name (e.g. v1.0.0)'
+      version_bump:
+        description: 'Version bump type'
         required: true
-        default: 'v1.0.0'
-      release_name:
-        description: 'Release title'
-        required: true
-        default: 'Release v1.0.0'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
       draft:
-        description: 'Draft release?'
+        description: 'Create as draft release?'
         required: true
         type: boolean
         default: false
@@ -21,7 +26,78 @@ permissions:
   contents: write
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          # Get latest tag, fallback to v0.0.0 if none exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          # Extract version without 'v' prefix
+          VERSION=${LATEST_TAG#v}
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Bump version
+        id: bump
+        run: |
+          CURRENT="${{ steps.get_tag.outputs.current_version }}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          
+          # Remove build number if exists
+          PATCH=${PATCH%%+*}
+          
+          # Determine bump type
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BUMP_TYPE="patch"
+          else
+            BUMP_TYPE="${{ inputs.version_bump }}"
+          fi
+          
+          # Increment version
+          case $BUMP_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          BUILD_NUMBER=$(date +%Y%m%d%H%M%S)
+          FULL_VERSION="$NEW_VERSION+$BUILD_NUMBER"
+          TAG="v$NEW_VERSION"
+          
+          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "New version: $FULL_VERSION (tag: $TAG)"
+      
+      - name: Update pubspec.yaml
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.bump.outputs.version }}/" pubspec.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}" || echo "No changes to commit"
+          git push || echo "No changes to push"
+
   build-android:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,11 +107,17 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
           cache: 'gradle'
+      
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
+      
       - run: flutter pub get
+      
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i "s/^version: .*/version: ${{ needs.version.outputs.version }}/" pubspec.yaml
       
       - name: Decode Keystore
         env:
@@ -44,7 +126,7 @@ jobs:
           if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
             echo "$RELEASE_KEYSTORE_BASE64" | tr -d '\n\r ' | base64 -d > android/app/release.jks
           fi
-          
+      
       - run: flutter build apk --release
       
       - uses: actions/upload-artifact@v4
@@ -53,6 +135,7 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
 
   build-windows:
+    needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,27 +144,32 @@ jobs:
         with:
           channel: 'stable'
           cache: true
+      
       - run: flutter pub get
       
-      # Download ONNX Runtime DLL
+      - name: Update version in pubspec.yaml
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version: .*', "version: ${{ needs.version.outputs.version }}" | Set-Content pubspec.yaml
+      
       - name: Download ONNX Runtime (Windows)
         run: |
           Invoke-WebRequest -Uri "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-win-x64-1.16.3.zip" -OutFile "onnxruntime.zip"
           Expand-Archive onnxruntime.zip -DestinationPath .
-          mkdir -p windows/runner
+          New-Item -ItemType Directory -Force -Path windows/runner -ErrorAction SilentlyContinue
           Copy-Item onnxruntime-win-x64-1.16.3\lib\onnxruntime.dll -Destination "windows/runner/"
-          
+      
       - run: flutter build windows --release
-          
+      
       - name: Archive Windows Build
-        run: compress-archive -Path build/windows/x64/runner/Release/* -DestinationPath traintime_pda_ucas_windows.zip
-        
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath traintime_pda_ucas_windows_${{ needs.version.outputs.tag }}.zip
+      
       - uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: traintime_pda_ucas_windows.zip
+          path: traintime_pda_ucas_windows_${{ needs.version.outputs.tag }}.zip
 
   build-linux:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,32 +178,37 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev curl
-          
+      
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
+      
       - run: flutter pub get
       
-      # Download ONNX Runtime SO
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i "s/^version: .*/version: ${{ needs.version.outputs.version }}/" pubspec.yaml
+      
       - name: Download ONNX Runtime (Linux)
         run: |
           curl -L -o onnxruntime.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-linux-x64-1.16.3.tgz"
           tar -xzf onnxruntime.tgz
           mkdir -p linux/runner
           cp onnxruntime-linux-x64-1.16.3/lib/libonnxruntime.so.1.16.3 linux/runner/libonnxruntime.so
-          
+      
       - run: flutter build linux --release
       
       - name: Archive Linux Build
-        run: tar -czvf traintime_pda_ucas_linux.tar.gz -C build/linux/x64/release/bundle .
-        
+        run: tar -czvf traintime_pda_ucas_linux_${{ needs.version.outputs.tag }}.tar.gz -C build/linux/x64/release/bundle .
+      
       - uses: actions/upload-artifact@v4
         with:
           name: linux-tar
-          path: traintime_pda_ucas_linux.tar.gz
+          path: traintime_pda_ucas_linux_${{ needs.version.outputs.tag }}.tar.gz
 
   build-macos:
+    needs: version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -124,74 +217,102 @@ jobs:
         with:
           channel: 'stable'
           cache: true
+      
       - run: flutter pub get
       
-      # Download ONNX Runtime Dylib
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i '' "s/^version: .*/version: ${{ needs.version.outputs.version }}/" pubspec.yaml
+      
       - name: Download ONNX Runtime (macOS)
         run: |
           curl -L -o onnxruntime.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-osx-universal2-1.16.3.tgz"
           tar -xzf onnxruntime.tgz
           cp onnxruntime-osx-universal2-1.16.3/lib/libonnxruntime.1.16.3.dylib macos/Runner/libonnxruntime.dylib
-          
+      
       - run: flutter build macos --release
       
       - name: Copy ONNX Lib
         run: |
           cp macos/Runner/libonnxruntime.dylib build/macos/Build/Products/Release/traintime_pda_ucas.app/Contents/MacOS/
-          
+      
       - name: Archive macOS Build
-        run: ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/traintime_pda_ucas.app traintime_pda_ucas_macos.zip
-        
+        run: ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/traintime_pda_ucas.app traintime_pda_ucas_macos_${{ needs.version.outputs.tag }}.zip
+      
       - uses: actions/upload-artifact@v4
         with:
           name: macos-zip
-          path: traintime_pda_ucas_macos.zip
+          path: traintime_pda_ucas_macos_${{ needs.version.outputs.tag }}.zip
 
   build-ios:
+    needs: version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
+      
       - run: flutter pub get
       
-      # Note: iOS ONNX Runtime usually requires a pod or framework.
-      # The flutter 'onnxruntime' plugin should handle pulling the pod if properly configured in Podfile.
-      # If not, we might fail. Given this is a "blind" fix without a Mac to verify Podfile behavior,
-      # we assume the plugin works or we skip detailed pod setup.
-      # Standard 'flutter build ios' triggers pod install.
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i '' "s/^version: .*/version: ${{ needs.version.outputs.version }}/" pubspec.yaml
       
       - run: flutter build ios --release --no-codesign
+      
       - name: Archive iOS Build
         run: |
           mkdir Payload
           mv build/ios/iphoneos/Runner.app Payload/
-          zip -r traintime_pda_ucas_ios.ipa Payload
+          zip -r traintime_pda_ucas_ios_${{ needs.version.outputs.tag }}.ipa Payload
+      
       - uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: traintime_pda_ucas_ios.ipa
+          path: traintime_pda_ucas_ios_${{ needs.version.outputs.tag }}.ipa
 
   release:
-    needs: [build-android, build-windows, build-linux, build-macos, build-ios]
+    needs: [version, build-android, build-windows, build-linux, build-macos, build-ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # Only create release on push to main/master or manual workflow_dispatch
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
+      - uses: actions/checkout@v4
+      
       - uses: actions/download-artifact@v4
+      
       - name: Display structure of downloaded files
         run: ls -R
+      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ inputs.tag_name }}
-          name: ${{ inputs.release_name }}
-          draft: ${{ inputs.draft }}
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: Release ${{ needs.version.outputs.tag }}
+          draft: ${{ inputs.draft || false }}
+          body: |
+            # TrainTime PDA UCAS ${{ needs.version.outputs.tag }}
+            
+            **Version**: ${{ needs.version.outputs.version }}
+            **Build Date**: ${{ github.event.head_commit.timestamp }}
+            
+            ## Changes
+            ${{ github.event.head_commit.message }}
+            
+            ## Downloads
+            - Windows: traintime_pda_ucas_windows_${{ needs.version.outputs.tag }}.zip
+            - Linux: traintime_pda_ucas_linux_${{ needs.version.outputs.tag }}.tar.gz
+            - macOS: traintime_pda_ucas_macos_${{ needs.version.outputs.tag }}.zip
+            - Android: app-release.apk
+            - iOS: traintime_pda_ucas_ios_${{ needs.version.outputs.tag }}.ipa
           files: |
             android-apk/app-release.apk
-            windows-zip/traintime_pda_ucas_windows.zip
-            linux-tar/traintime_pda_ucas_linux.tar.gz
-            macos-zip/traintime_pda_ucas_macos.zip
-            ios-ipa/traintime_pda_ucas_ios.ipa
+            windows-zip/traintime_pda_ucas_windows_${{ needs.version.outputs.tag }}.zip
+            linux-tar/traintime_pda_ucas_linux_${{ needs.version.outputs.tag }}.tar.gz
+            macos-zip/traintime_pda_ucas_macos_${{ needs.version.outputs.tag }}.zip
+            ios-ipa/traintime_pda_ucas_ios_${{ needs.version.outputs.tag }}.ipa
