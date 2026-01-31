@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../course_reviews/data/reviews_data.dart';
+import '../course_reviews/data/reviews_service.dart';
 import '../course_reviews/logic/aggregator.dart';
 import '../course_reviews/models/review_model.dart';
 import 'widget/swipe_back_route.dart';
@@ -16,19 +16,43 @@ class CourseReviewsPage extends StatefulWidget {
 
 class _CourseReviewsPageState extends State<CourseReviewsPage> {
   // Cache the aggregated groups
-  late List<CourseGroup> _allGroups;
+  List<CourseGroup> _allGroups = [];
   List<CourseGroup> _filteredGroups = [];
   final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    // Aggregation is fast enough for <5000 records to do on init,
-    // but ideally should be done in a separate isolate or provider.
-    // For simplicity here we do it directly.
-    _allGroups = aggregateCourses(REVIEWS);
-    _filteredGroups = _allGroups;
     _searchController.addListener(_onSearchChanged);
+    _loadReviews();
+  }
+
+  Future<void> _loadReviews() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final reviews = await ReviewsService.fetchReviews();
+      final groups = aggregateCourses(reviews);
+      if (mounted) {
+        setState(() {
+          _allGroups = groups;
+          _filteredGroups = groups;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = '加载失败: $e';
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -76,11 +100,11 @@ class _CourseReviewsPageState extends State<CourseReviewsPage> {
                       InkWell(
                         onTap: () => launchUrl(
                           Uri.parse(
-                            'https://github.com/phyer/UCAS-Course-Reviews',
+                            'https://github.com/2654400439/UCAS-Course-Reviews',
                           ),
                         ),
                         child: const Text(
-                          'phyer/UCAS-Course-Reviews',
+                          '2654400439/UCAS-Course-Reviews',
                           style: TextStyle(
                             color: Colors.blue,
                             decoration: TextDecoration.underline,
@@ -88,7 +112,7 @@ class _CourseReviewsPageState extends State<CourseReviewsPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const Text('感谢原作者整理的详尽测评数据！\n本App仅做移动端适配与功能扩展。'),
+                      const Text('感谢社区同学们整理的详尽课程评价！\n本App会实时拉取最新数据。'),
                     ],
                   ),
                   actions: [
@@ -137,20 +161,36 @@ class _CourseReviewsPageState extends State<CourseReviewsPage> {
             ),
           ),
           Expanded(
-            child: _filteredGroups.isEmpty
-                ? const Center(child: Text('没有找到相关课程'))
-                : ListView.separated(
-                    itemCount: _filteredGroups.length,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    separatorBuilder: (c, i) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final group = _filteredGroups[index];
-                      return _CourseGroupCard(group: group);
-                    },
-                  ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(_error!, style: const TextStyle(color: Colors.red)),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadReviews,
+                              child: const Text('重试'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _filteredGroups.isEmpty
+                        ? const Center(child: Text('没有找到相关课程'))
+                        : ListView.separated(
+                            itemCount: _filteredGroups.length,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            separatorBuilder: (c, i) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final group = _filteredGroups[index];
+                              return _CourseGroupCard(group: group);
+                            },
+                          ),
           ),
         ],
       ),

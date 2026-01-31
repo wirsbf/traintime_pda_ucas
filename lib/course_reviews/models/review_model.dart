@@ -30,6 +30,23 @@ class ReviewRow {
     required this.highScoreDifficulty,
     this.remark,
   });
+
+  factory ReviewRow.fromJson(Map<String, dynamic> json) {
+    return ReviewRow(
+      id: json['id'] as int? ?? 0,
+      courseCode: json['courseCode'] as String?,
+      courseName: json['courseName'] as String? ?? '',
+      instructors: json['instructors'] as String? ?? '',
+      credits: json['credits'] as num? ?? 0,
+      isDegreeCourse: json['isDegreeCourse'] as bool? ?? false,
+      term: json['term'] as String? ?? '',
+      college: json['college'] as String?,
+      value: json['value'] as int? ?? 3,
+      passDifficulty: json['passDifficulty'] as int? ?? 2,
+      highScoreDifficulty: json['highScoreDifficulty'] as int? ?? 3,
+      remark: json['remark'] as String?,
+    );
+  }
 }
 
 enum TermSeason { spring, autumn, summer, unknown }
