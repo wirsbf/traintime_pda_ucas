@@ -78,14 +78,15 @@ jobs:
               ;;
           esac
           
+          # Use git commit count as build number (Android-safe integer)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          BUILD_NUMBER=$(date +%Y%m%d%H%M%S)
           FULL_VERSION="$NEW_VERSION+$BUILD_NUMBER"
           TAG="v$NEW_VERSION"
           
           echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "New version: $FULL_VERSION (tag: $TAG)"
+          echo "New version: $FULL_VERSION (tag: $TAG, build: $BUILD_NUMBER)"
       
       - name: Update pubspec.yaml
         run: |
