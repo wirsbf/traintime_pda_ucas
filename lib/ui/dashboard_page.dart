@@ -100,11 +100,12 @@ class _DashboardPageState extends State<DashboardPage>
       // Continue if we have cache
     }
 
-    // 2. Check 12h Cache
+    // 2. Check Cache
     if (!force) {
       final lastUpdate = await CacheManager().getLastUpdateTime();
       final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - lastUpdate < 12 * 3600 * 1000) {
+      // Reduce cache validity to 1 hour to ensure fresh data on resume (if backgrounded long)
+      if (now - lastUpdate < 1 * 3600 * 1000) {
         if (_schedule != null && _lectures != null) return;
       }
     }

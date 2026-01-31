@@ -1,8 +1,4 @@
-import 'package:flutter/material.dart';
-
-import 'data/settings_controller.dart';
-import 'ui/home_shell.dart';
-import 'ui/login_page.dart';
+import 'ui/splash_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,9 +27,7 @@ class UcasScheduleApp extends StatelessWidget {
           },
         ),
       ),
-      home: settings.username.isNotEmpty
-          ? HomeShell(settings: settings)
-          : LoginPage(settings: settings),
+      home: SplashPage(settings: settings),
     );
   }
 }
