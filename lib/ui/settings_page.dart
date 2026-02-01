@@ -1,7 +1,9 @@
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 
+import 'package:package_info_plus/package_info_plus.dart';
 import '../data/settings_controller.dart';
+import '../data/services/update_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, required this.settings});
@@ -114,8 +116,91 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 }
 
-class AboutPage extends StatelessWidget {
+class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
+
+  @override
+  State<AboutPage> createState() => _AboutPageState();
+}
+
+class _AboutPageState extends State<AboutPage> {
+  String _version = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _version = 'v${info.version}';
+      });
+    }
+  }
+
+  Future<void> _checkUpdate(BuildContext context) async {
+    try {
+      final info = await UpdateService().checkUpdate();
+      if (!mounted) return;
+
+      if (info == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('检查更新失败，请稍后重试')),
+        );
+        return;
+      }
+
+      if (info.hasUpdate) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('发现新版本'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('最新版本：v${info.version}'),
+                const SizedBox(height: 8),
+                const Text('更新内容：'),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: SingleChildScrollView(
+                    child: Text(info.body),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('稍后'),
+              ),
+              TextButton(
+                onPressed: () {
+                  launchUrl(Uri.parse(info.url));
+                  Navigator.pop(context);
+                },
+                child: const Text('下载更新'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('当前已是最新版本')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('检查失败: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,10 +219,10 @@ class AboutPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Center(
+          Center(
             child: Text(
-              'v1.0.0',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              _version,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ),
           const SizedBox(height: 32),
@@ -150,21 +235,17 @@ class AboutPage extends StatelessWidget {
               Uri.parse('https://github.com/wirsbf/traintime_pda_ucas'),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.person),
-            title: const Text('作者'),
-            subtitle: const Text('wirsbf'),
+          const ListTile(
+            leading: Icon(Icons.person),
+            title: Text('作者'),
+            subtitle: Text('wirsbf'),
           ),
           ListTile(
             leading: const Icon(Icons.system_update),
             title: const Text('检查更新'),
             subtitle: const Text('查看最新版本'),
-            trailing: const Icon(Icons.open_in_new, size: 16),
-            onTap: () => launchUrl(
-              Uri.parse(
-                'https://github.com/wirsbf/traintime_pda_ucas/releases',
-              ),
-            ),
+            trailing: const Icon(Icons.chevron_right, size: 16),
+            onTap: () => _checkUpdate(context),
           ),
           const SizedBox(height: 32),
           const Divider(),

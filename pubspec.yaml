@@ -61,6 +61,7 @@ dependencies:
   # TFLite for custom captcha model
   # tflite_flutter: ^0.12.1 # (Removed)
   onnxruntime: ^1.4.1
+  package_info_plus: ^9.0.0
 
 dev_dependencies:
   flutter_test:

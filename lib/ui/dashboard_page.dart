@@ -12,6 +12,8 @@ import '../util/schedule_utils.dart';
 import 'captcha_dialog.dart';
 import '../data/cache_manager.dart';
 import 'lecture_detail_dialog.dart';
+import '../data/services/update_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key, required this.settings});
@@ -47,7 +49,56 @@ class _DashboardPageState extends State<DashboardPage>
     // Prioritize real-time data - fetch immediately
     // Cache is loaded as fallback only on fetch failure
     _fetchData();
+    _checkUpdate();
     _animController.forward();
+  }
+
+  Future<void> _checkUpdate() async {
+    try {
+      // Small delay to let the UI settle
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      
+      final info = await UpdateService().checkUpdate();
+      if (!mounted || info == null || !info.hasUpdate) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('发现新版本'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('最新版本：v${info.version}'),
+              const SizedBox(height: 8),
+              const Text('更新内容：'),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: SingleChildScrollView(
+                  child: Text(info.body),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('稍后'),
+            ),
+            TextButton(
+              onPressed: () {
+                launchUrl(Uri.parse(info.url));
+                Navigator.pop(context);
+              },
+              child: const Text('下载更新'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      // Silent failure for auto-check
+    }
   }
 
   @override
