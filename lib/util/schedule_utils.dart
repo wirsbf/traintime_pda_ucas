@@ -8,6 +8,11 @@ bool courseMatchesWeek(Course course, int week) {
   }
   final parsed = parseWeeks(weeksText);
   if (parsed.isEmpty) {
+    // If the text contains digits but parsed is empty, it means parsing failed
+    // or it's a specific non-matching format. In this case, don't show it.
+    if (weeksText.contains(RegExp(r'\d'))) {
+      return false;
+    }
     return true;
   }
   return parsed.contains(week);
@@ -33,24 +38,27 @@ Set<int> parseWeeks(String text) {
     if (part.isEmpty) {
       continue;
     }
-    if (part.contains('-')) {
-      final parts = part.split('-');
-      if (parts.length != 2) {
+
+    // Handle range like "1-10"
+    // Note: Use split('-') but check that it's not a single negative number
+    final rangeParts = part.split('-');
+    
+    // A standard range "A-B" where A and B are positive
+    if (rangeParts.length == 2 && rangeParts[0].isNotEmpty && rangeParts[1].isNotEmpty) {
+      final start = int.tryParse(rangeParts[0]);
+      final end = int.tryParse(rangeParts[1]);
+      if (start != null && end != null && start <= end) {
+        for (var i = start; i <= end; i++) {
+          weeks.add(i);
+        }
         continue;
       }
-      final start = int.tryParse(parts[0]);
-      final end = int.tryParse(parts[1]);
-      if (start == null || end == null) {
-        continue;
-      }
-      for (var week = start; week <= end; week++) {
-        weeks.add(week);
-      }
-    } else {
-      final value = int.tryParse(part);
-      if (value != null) {
-        weeks.add(value);
-      }
+    }
+
+    // If not a valid range, try as a single number (handles negative like "-1")
+    final value = int.tryParse(part);
+    if (value != null) {
+      weeks.add(value);
     }
   }
 
