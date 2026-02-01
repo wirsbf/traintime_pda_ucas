@@ -56,29 +56,55 @@ class _CourseHeader extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 8),
+          // Display College and Course Code
+          if (group.colleges.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                group.colleges.join(' / '),
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          if (group.reviews.isNotEmpty &&
+              group.reviews.first.courseCode != null)
+            Text(
+              '课程编码: ${group.reviews.first.courseCode}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
           const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _StatItem(
-                label: '推荐指数',
-                value: group.valueAvg.toStringAsFixed(1),
-                color: Colors.green,
-                isStar: true,
-              ),
-              _StatItem(
-                label: 'Pass难度',
-                value: group.passDifficultyAvg.toStringAsFixed(1),
-                color: Colors.orange,
-                isStar: true,
-              ),
-              _StatItem(
-                label: '高分难度',
-                value: group.highScoreDifficultyAvg.toStringAsFixed(1),
-                color: Colors.red,
-                isStar: true,
-              ),
-            ],
+          const SizedBox(height: 16),
+          _DetailedStatItem(
+            label: '推荐指数',
+            value: group.valueAvg.toStringAsFixed(1),
+            percentile: group.valuePercentile,
+            barValue: group.valuePercentile,
+            description: '超过 ${group.valuePercentile.toStringAsFixed(0)}% 的课程',
+            color: Colors.green,
+            isStar: true,
+          ),
+          const SizedBox(height: 12),
+          _DetailedStatItem(
+            label: 'Pass难度',
+            value: group.passDifficultyAvg.toStringAsFixed(1),
+            percentile: 100 - group.passDifficultyAvg/5.0*100, // This is just for bar visual, but we use calculated percentile
+            // real percentile from aggregator
+            barValue: group.passPercentile, 
+            description: '比 ${group.passPercentile.toStringAsFixed(0)}% 的课程更容易及格',
+            color: Colors.orange,
+            isStar: true,
+          ),
+          const SizedBox(height: 12),
+          _DetailedStatItem(
+            label: '高分难度',
+            value: group.highScoreDifficultyAvg.toStringAsFixed(1),
+            percentile: group.highScoreDifficultyAvg, // Visual
+            barValue: group.highScorePercentile,
+            description: '比 ${group.highScorePercentile.toStringAsFixed(0)}% 的课程更容易拿高分',
+            color: Colors.red,
+            isStar: true,
           ),
           const SizedBox(height: 24),
           Wrap(
@@ -95,15 +121,21 @@ class _CourseHeader extends StatelessWidget {
   }
 }
 
-class _StatItem extends StatelessWidget {
+class _DetailedStatItem extends StatelessWidget {
   final String label;
   final String value;
+  final double barValue; // 0-100
+  final double? percentile; // unused in build but kept for compat
+  final String description;
   final Color color;
   final bool isStar;
 
-  const _StatItem({
+  const _DetailedStatItem({
     required this.label,
     required this.value,
+    required this.barValue,
+    this.percentile,
+    required this.description,
     required this.color,
     this.isStar = false,
   });
@@ -111,37 +143,51 @@ class _StatItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
+            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            const Spacer(),
             Text(
               value,
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: color,
-                height: 1.0,
               ),
             ),
             if (isStar) ...[
-              const SizedBox(width: 2),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Icon(Icons.star, size: 16, color: color),
-              ),
+              const SizedBox(width: 4),
+              Icon(Icons.star, size: 16, color: color),
             ],
           ],
         ),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        Text(description, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: barValue / 100,
+            backgroundColor: color.withOpacity(0.1),
+            color: color,
+            minHeight: 8,
           ),
         ),
+        const SizedBox(height: 4),
+        Row(
+           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+           children: const [
+             Text('0%', style: TextStyle(fontSize: 10, color: Colors.grey)),
+             Text('25%', style: TextStyle(fontSize: 10, color: Colors.grey)),
+             Text('50%', style: TextStyle(fontSize: 10, color: Colors.grey)),
+             Text('75%', style: TextStyle(fontSize: 10, color: Colors.grey)),
+             Text('100%', style: TextStyle(fontSize: 10, color: Colors.grey)),
+           ],
+        )
       ],
     );
   }

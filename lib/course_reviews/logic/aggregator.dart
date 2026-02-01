@@ -100,6 +100,47 @@ List<CourseGroup> aggregateCourses(List<ReviewRow> rows) {
     );
   }
 
+  // Calculate stats for all groups
+  final total = groups.length;
+  if (total > 0) {
+    // Extract lists for faster comparison (optimization optional but good for clarity)
+    final values = groups.map((g) => g.valueAvg).toList();
+    final passDiffs = groups.map((g) => g.passDifficultyAvg).toList();
+    final highDiffs = groups.map((g) => g.highScoreDifficultyAvg).toList();
+
+    // Re-map groups with percentiles
+    for (var i = 0; i < total; i++) {
+        final g = groups[i];
+        
+        // Value: Higher is better. Percentile = % of courses with LOWER value.
+        final betterThanValue = values.where((v) => v < g.valueAvg).length;
+        
+        // Difficulty: Lower is better (easier). Percentile = % of courses with HIGHER difficulty.
+        final easierThanPass = passDiffs.where((v) => v > g.passDifficultyAvg).length;
+        final easierThanHigh = highDiffs.where((v) => v > g.highScoreDifficultyAvg).length;
+
+        groups[i] = CourseGroup(
+            key: g.key,
+            courseName: g.courseName,
+            instructorsCanonical: g.instructorsCanonical,
+            termSeason: g.termSeason,
+            colleges: g.colleges,
+            terms: g.terms,
+            creditsMin: g.creditsMin,
+            creditsMax: g.creditsMax,
+            isDegreeCourseAny: g.isDegreeCourseAny,
+            reviewCount: g.reviewCount,
+            valueAvg: g.valueAvg,
+            passDifficultyAvg: g.passDifficultyAvg,
+            highScoreDifficultyAvg: g.highScoreDifficultyAvg,
+            valuePercentile: (betterThanValue / total) * 100,
+            passPercentile: (easierThanPass / total) * 100,
+            highScorePercentile: (easierThanHigh / total) * 100,
+            reviews: g.reviews,
+        );
+    }
+  }
+
   // Default order: value high -> review count -> name
   groups.sort((a, b) {
     if (a.valueAvg != b.valueAvg) {

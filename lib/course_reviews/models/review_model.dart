@@ -66,6 +66,12 @@ class CourseGroup {
   final double valueAvg;
   final double passDifficultyAvg;
   final double highScoreDifficultyAvg;
+  
+  // Percentiles (0-100)
+  final double valuePercentile; 
+  final double passPercentile;
+  final double highScorePercentile;
+
   final List<ReviewRow> reviews;
 
   const CourseGroup({
@@ -82,6 +88,9 @@ class CourseGroup {
     required this.valueAvg,
     required this.passDifficultyAvg,
     required this.highScoreDifficultyAvg,
+    this.valuePercentile = 0,
+    this.passPercentile = 0,
+    this.highScorePercentile = 0,
     required this.reviews,
   });
 }

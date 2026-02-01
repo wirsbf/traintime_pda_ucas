@@ -22,6 +22,10 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -94,8 +98,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pubspec.yaml
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}" || echo "No changes to commit"
-          git push || echo "No changes to push"
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git pull --rebase origin main || echo "Rebase failed, trying force push or ignoring"
+          git push || echo "Push failed"
 
   build-android:
     needs: version
@@ -152,10 +157,21 @@ jobs:
         run: |
           (Get-Content pubspec.yaml) -replace '^version: .*', "version: ${{ needs.version.outputs.version }}" | Set-Content pubspec.yaml
       
+      - name: Cache ONNX Runtime
+        id: cache-onnx
+        uses: actions/cache@v3
+        with:
+          path: onnxruntime.zip
+          key: onnx-windows-1.16.3
+
       - name: Download ONNX Runtime (Windows)
+        if: steps.cache-onnx.outputs.cache-hit != 'true'
         run: |
           Invoke-WebRequest -Uri "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-win-x64-1.16.3.zip" -OutFile "onnxruntime.zip"
-          Expand-Archive onnxruntime.zip -DestinationPath .
+      
+      - name: Extract ONNX Runtime
+        run: |
+          Expand-Archive onnxruntime.zip -DestinationPath . -Force
           New-Item -ItemType Directory -Force -Path windows/runner -ErrorAction SilentlyContinue
           Copy-Item onnxruntime-win-x64-1.16.3\lib\onnxruntime.dll -Destination "windows/runner/"
       
@@ -191,9 +207,20 @@ jobs:
         run: |
           sed -i "s/^version: .*/version: ${{ needs.version.outputs.version }}/" pubspec.yaml
       
+      - name: Cache ONNX Runtime
+        id: cache-onnx
+        uses: actions/cache@v3
+        with:
+          path: onnxruntime.tgz
+          key: onnx-linux-1.16.3
+
       - name: Download ONNX Runtime (Linux)
+        if: steps.cache-onnx.outputs.cache-hit != 'true'
         run: |
           curl -L -o onnxruntime.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-linux-x64-1.16.3.tgz"
+      
+      - name: Extract ONNX Runtime
+        run: |
           tar -xzf onnxruntime.tgz
           mkdir -p linux/runner
           cp onnxruntime-linux-x64-1.16.3/lib/libonnxruntime.so.1.16.3 linux/runner/libonnxruntime.so
@@ -225,9 +252,20 @@ jobs:
         run: |
           sed -i '' "s/^version: .*/version: ${{ needs.version.outputs.version }}/" pubspec.yaml
       
+      - name: Cache ONNX Runtime
+        id: cache-onnx
+        uses: actions/cache@v3
+        with:
+          path: onnxruntime.tgz
+          key: onnx-macos-1.16.3
+
       - name: Download ONNX Runtime (macOS)
+        if: steps.cache-onnx.outputs.cache-hit != 'true'
         run: |
           curl -L -o onnxruntime.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.16.3/onnxruntime-osx-universal2-1.16.3.tgz"
+      
+      - name: Extract ONNX Runtime
+        run: |
           tar -xzf onnxruntime.tgz
           cp onnxruntime-osx-universal2-1.16.3/lib/libonnxruntime.1.16.3.dylib macos/Runner/libonnxruntime.dylib
       

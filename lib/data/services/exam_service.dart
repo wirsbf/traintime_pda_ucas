@@ -10,11 +10,9 @@ class ExamService {
   ExamService({
     required Dio dio,
     required JwxkAuthenticationService jwxkAuth,
-  })  : _dio = dio,
-        _jwxkAuth = jwxkAuth,
+  })  : _jwxkAuth = jwxkAuth,
         _httpHelper = HttpHelper(dio);
 
-  final Dio _dio;
   final JwxkAuthenticationService _jwxkAuth;
   final HttpHelper _httpHelper;
 
@@ -205,3 +203,5 @@ class ExamService {
     );
   }
 }
+
+

@@ -1,7 +1,10 @@
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
+import 'package:html/parser.dart' as html_parser;
+
 import '../auth/xkgo_authentication_service.dart';
+import '../../model/selected_course.dart';
 
 /// Course selection service (auto-robber) for XKGO system
 class CourseSelectionService {
@@ -103,5 +106,82 @@ class CourseSelectionService {
     );
 
     return response.data ?? '';
+  }
+  /// Fetch the main page content (contains selected course list with instructors)
+  Future<String> fetchMainPage() async {
+    // Ensure authentication
+    if (!await _xkgoAuth.validateSession()) {
+      throw Exception('XKGO session not valid. Please authenticate first.');
+    }
+
+    final response = await _dio.get<String>(
+      '${_xkgoAuth.baseUrl}$_mainPath',
+      options: Options(
+        responseType: ResponseType.plain,
+      ),
+    );
+
+    return response.data ?? '';
+  }
+
+  /// Fetch full details of selected courses from XKGO (includes instructors)
+  Future<List<SelectedCourse>> fetchSelectedCoursesDetails() async {
+    final html = await fetchMainPage();
+    return _parseSelectedCoursesFromMain(html);
+  }
+
+  List<SelectedCourse> _parseSelectedCoursesFromMain(String html) {
+    final document = html_parser.parse(html);
+    
+    // 1. Extract Semester
+    String semester = '';
+    final semesterElement = document.querySelectorAll('p').firstWhere(
+      (e) => e.text.contains('当前选课学期'),
+      orElse: () => document.createElement('p'),
+    );
+    if (semesterElement.text.isNotEmpty) {
+      semester = semesterElement.text.replaceAll('当前选课学期：', '').trim();
+    }
+
+    // 2. Parse Table
+    // Look for "已选择的课程" section or just the table
+    // The table is usually the second one or inside .mc-body
+    // Best to look for the specific header "主讲教师"
+    
+    final tables = document.querySelectorAll('table');
+    for (final table in tables) {
+      final headerText = table.querySelector('thead')?.text ?? '';
+      if (!headerText.contains('主讲教师')) continue;
+
+      // Found the right table
+      final rows = table.querySelectorAll('tbody tr');
+      final courses = <SelectedCourse>[];
+
+      for (final row in rows) {
+        final cells = row.querySelectorAll('td');
+        if (cells.length < 7) continue;
+
+        // Index mapping based on observation:
+        // 0: Code, 1: Name, 2: Hours, 3: Credits, 4: Degree, 5: Exam, 6: Teacher, 7: Cross, 8: Delete
+        
+        final code = cells[0].text.trim();
+        final name = cells[1].text.trim();
+        final credits = double.tryParse(cells[3].text.trim()) ?? 0.0;
+        final degree = cells[4].text.contains('是');
+        final teacher = cells[6].text.trim();
+
+        courses.add(SelectedCourse(
+          code: code,
+          name: name,
+          instructors: teacher,
+          credits: credits,
+          isDegree: degree,
+          semester: semester.isNotEmpty ? semester : '未知学期', // Fallback
+        ));
+      }
+      return courses;
+    }
+
+    return [];
   }
 }

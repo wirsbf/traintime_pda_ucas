@@ -20,6 +20,7 @@ import '../model/schedule.dart';
 import '../model/score.dart';
 import '../model/exam.dart';
 import '../model/lecture.dart';
+import '../model/selected_course.dart';
 
 /// Exception thrown when captcha is required for login
 class CaptchaRequiredException implements Exception {
@@ -200,6 +201,14 @@ class UcasClient {
     );
   }
 
+  /// Fetch selected courses details for review
+  Future<List<SelectedCourse>> fetchSelectedCoursesDetails() async {
+    return await _executeWithAuth(
+      authService: _xkgoAuth,
+      action: () => _courseSelectionService.fetchSelectedCoursesDetails(),
+    );
+  }
+
   /// Fetch all lectures
   Future<List<Lecture>> fetchLectures([String? username, String? password]) async {
     if (username != null && password != null) {
@@ -249,6 +258,14 @@ class UcasClient {
     return await _executeWithAuth(
       authService: _xkgoAuth,
       action: () => _courseSelectionService.saveCourse(sids, vcode),
+    );
+  }
+
+  /// Fetch XKGO main page (exposed for debugging/parsing)
+  Future<String> fetchXkgoMain() async {
+    return await _executeWithAuth(
+      authService: _xkgoAuth,
+      action: () => _courseSelectionService.fetchMainPage(),
     );
   }
 

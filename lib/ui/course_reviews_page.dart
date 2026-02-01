@@ -22,6 +22,10 @@ class _CourseReviewsPageState extends State<CourseReviewsPage> {
   bool _isLoading = true;
   String? _error;
 
+  // Filter state
+  Set<String> _allColleges = {};
+  String? _selectedCollege;
+
   @override
   void initState() {
     super.initState();
@@ -41,7 +45,14 @@ class _CourseReviewsPageState extends State<CourseReviewsPage> {
       if (mounted) {
         setState(() {
           _allGroups = groups;
-          _filteredGroups = groups;
+          // Extract colleges
+          _allColleges = groups
+              .expand((g) => g.colleges)
+              .map((c) => c.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet();
+          
+          _filterCourses(); // Initial filter
           _isLoading = false;
         });
       }
@@ -62,16 +73,23 @@ class _CourseReviewsPageState extends State<CourseReviewsPage> {
   }
 
   void _onSearchChanged() {
+    _filterCourses();
+  }
+
+  void _filterCourses() {
     final query = _searchController.text.toLowerCase().trim();
-    if (query.isEmpty) {
-      setState(() => _filteredGroups = _allGroups);
-      return;
-    }
+    final college = _selectedCollege;
 
     setState(() {
       _filteredGroups = _allGroups.where((g) {
-        return g.courseName.toLowerCase().contains(query) ||
+        final matchSearch = query.isEmpty ||
+            g.courseName.toLowerCase().contains(query) ||
             g.instructorsCanonical.toLowerCase().contains(query);
+        
+        final matchCollege = college == null ||
+            g.colleges.contains(college);
+
+        return matchSearch && matchCollege;
       }).toList();
     });
   }
@@ -160,6 +178,41 @@ class _CourseReviewsPageState extends State<CourseReviewsPage> {
               ),
             ),
           ),
+          // College Filter
+          if (_allColleges.isNotEmpty)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  FilterChip(
+                    label: const Text('全部学院'),
+                    selected: _selectedCollege == null,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => _selectedCollege = null);
+                        _filterCourses();
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ..._allColleges.map((college) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(college),
+                        selected: _selectedCollege == college,
+                        onSelected: (selected) {
+                          setState(() => _selectedCollege = selected ? college : null);
+                          _filterCourses();
+                        },
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -278,6 +331,20 @@ class _CourseGroupCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            if (group.colleges.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                child: Text(
+                  group.colleges.length > 1
+                      ? '${group.colleges.first} 等${group.colleges.length}个学院'
+                      : group.colleges.first,
+                  style: TextStyle(
+                    color: theme.colorScheme.primary.withOpacity(0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             const SizedBox(height: 4),
             Row(
               children: [

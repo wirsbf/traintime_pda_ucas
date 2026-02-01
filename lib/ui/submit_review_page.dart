@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../course_reviews/utils/submission_utils.dart';
 import '../course_reviews/utils/normalize.dart';
+import '../../data/ucas_client.dart';
+import 'webview_page.dart';
 
 // Match TypeScript DraftReview type
 class DraftReview {
@@ -39,7 +40,7 @@ class _SubmitReviewPageState extends State<SubmitReviewPage> {
   List<DraftReview> _drafts = [];
   List<String> _warnings = [];
 
-  static const String _reviewSubmitUrl = "https://wj.qq.com/s2/13594132/3f08/";
+  static const String _reviewSubmitUrl = "https://wj.qq.com/s2/25421061/5c9b/";
 
   @override
   void initState() {
@@ -127,9 +128,60 @@ class _SubmitReviewPageState extends State<SubmitReviewPage> {
       ).showSnackBar(const SnackBar(content: Text('已复制提交内容。正在打开问卷...')));
     }
 
-    final uri = Uri.parse(_reviewSubmitUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // Navigate to WebViewPage instead of external launch
+    if (mounted) {
+       Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const WebViewPage(
+            url: _reviewSubmitUrl, 
+            title: '填写问卷',
+          ),
+        ),
+      );
+    }
+  }
+
+  bool _isLoading = false;
+
+  Future<void> _loadFromSystem() async {
+    setState(() => _isLoading = true);
+    try {
+      final courses = await UcasClient.instance.fetchSelectedCoursesDetails();
+      
+      if (courses.isEmpty) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('未获取到已选课程，请确保已登录选课系统')),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _drafts = courses.map((c) => DraftReview(ParsedCourseRow(
+          courseCode: c.code,
+          courseName: c.name,
+          credits: c.credits,
+          isDegreeCourse: c.isDegree,
+          term: c.semester,
+          instructors: c.instructors,
+        ))).toList();
+        _warnings = [];
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('成功导入 ${courses.length} 门课程')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('获取失败: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -152,29 +204,58 @@ class _SubmitReviewPageState extends State<SubmitReviewPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        '1. 粘贴已选课程 (TSV)',
+                        '1. 导入已选课程',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       if (_drafts.isNotEmpty)
                         TextButton(onPressed: _clear, child: const Text('清空')),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _tsvController,
-                    maxLines: 4,
-                    minLines: 2,
-                    decoration: const InputDecoration(
-                      hintText: '请从 SEP 选课系统复制“已选课程”表格粘贴到这里...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.all(12),
+                  const SizedBox(height: 16),
+                  
+                  if (_isLoading)
+                     const Center(child: CircularProgressIndicator())
+                  else
+                    ElevatedButton.icon(
+                      onPressed: _loadFromSystem,
+                      icon: const Icon(Icons.cloud_download),
+                      label: const Text('从教务系统一键导入'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    
+                  if (!_isLoading && _drafts.isEmpty) ...[
+                     const SizedBox(height: 16),
+                     const Divider(),
+                     ExpansionTile(
+                        title: const Text('手动粘贴 (旧版方式)', style: TextStyle(fontSize: 14)),
+                        children: [
+                          TextField(
+                            controller: _tsvController,
+                            maxLines: 4,
+                            minLines: 2,
+                            decoration: const InputDecoration(
+                              hintText: '请从 SEP 选课系统复制“已选课程”表格粘贴到这里...',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.all(12),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: _tsvController.text.isNotEmpty ? _parse : null,
+                            child: const Text('解析 TSV'),
+                          ),
+                        ],
+                     ),
+                  ],
+
                   if (_warnings.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.all(8),
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin: const EdgeInsets.only(top: 12),
                       decoration: BoxDecoration(
                         color: Colors.amber.shade50,
                         border: Border.all(color: Colors.amber.shade200),
@@ -195,14 +276,6 @@ class _SubmitReviewPageState extends State<SubmitReviewPage> {
                             .toList(),
                       ),
                     ),
-                  ElevatedButton(
-                    onPressed: _tsvController.text.isNotEmpty ? _parse : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('解析生成表格'),
-                  ),
                 ],
               ),
             ),
