@@ -320,7 +320,14 @@ class _DashboardPageState extends State<DashboardPage>
                     MaterialPageRoute(
                       builder: (_) => LecturePage(settings: widget.settings),
                     ),
-                  );
+                  ).then((_) async {
+                    // Refresh custom courses on return
+                    final custom = await CacheManager().getCustomCourses();
+                    if (mounted) {
+                      setState(() => _customCourses = custom);
+                      _processWithAddedStatus();
+                    }
+                  });
                 },
                 child: _buildSectionHeader(
                   '近期讲座',

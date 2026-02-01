@@ -25,11 +25,24 @@ class _LectureDetailDialogState extends State<LectureDetailDialog> {
   String _content = '';
   late String _location;
 
+  bool _isAdded = false;
+
   @override
   void initState() {
     super.initState();
     _location = widget.lecture.location;
+    _checkIfAdded();
     _fetchDetail();
+  }
+
+  Future<void> _checkIfAdded() async {
+    final courses = await CacheManager().getCustomCourses();
+    final targetId = 'L_${widget.lecture.id}';
+    if (mounted) {
+      setState(() {
+        _isAdded = courses.any((c) => c.id == targetId);
+      });
+    }
   }
 
   Future<void> _fetchDetail() async {
@@ -107,7 +120,10 @@ class _LectureDetailDialogState extends State<LectureDetailDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _addToSchedule, child: const Text('加入课表')),
+        TextButton(
+          onPressed: _isAdded ? _removeFromSchedule : _addToSchedule,
+          child: Text(_isAdded ? '移出课表' : '加入课表', style: TextStyle(color: _isAdded ? Colors.red : null)),
+        ),
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('关闭'),
@@ -141,6 +157,20 @@ class _LectureDetailDialogState extends State<LectureDetailDialog> {
         ],
       ),
     );
+  }
+
+  Future<void> _removeFromSchedule() async {
+    final targetId = 'L_${widget.lecture.id}';
+    await CacheManager().removeCustomCourse(targetId);
+    if (mounted) {
+       setState(() {
+         _isAdded = false;
+       });
+       _showToast('已移出课表');
+       Future.delayed(const Duration(milliseconds: 300), () {
+         if (mounted) Navigator.pop(context);
+       });
+    }
   }
 
   Future<void> _addToSchedule() async {
@@ -224,8 +254,15 @@ class _LectureDetailDialogState extends State<LectureDetailDialog> {
     );
 
     await CacheManager().addCustomCourse(finalCourse);
-    _showToast('已添加到课程表 (第$weekNum周)');
-    if (mounted) Navigator.pop(context);
+    if (mounted) {
+       setState(() {
+         _isAdded = true;
+       });
+       _showToast('已添加到课程表 (第$weekNum周)');
+       Future.delayed(const Duration(milliseconds: 300), () {
+         if (mounted) Navigator.pop(context);
+       });
+    }
   }
 
   void _showToast(String msg) {

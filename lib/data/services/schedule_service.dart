@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:html/parser.dart' as html_parser;
 
 import '../auth/xkgo_authentication_service.dart';
+import '../auth/jwxk_authentication_service.dart';
 import '../utils/http_helper.dart';
 import '../../model/schedule.dart';
 
@@ -58,6 +59,7 @@ class _CourseEntry {
     required this.startSection,
     required this.endSection,
     required this.courseId,
+    required this.detailLink,
   });
 
   final String name;
@@ -65,6 +67,7 @@ class _CourseEntry {
   final int startSection;
   final int endSection;
   final String? courseId;
+  final String? detailLink;
 }
 
 class _CourseGroup {
@@ -72,12 +75,14 @@ class _CourseGroup {
     required this.name,
     required this.weekday,
     required this.courseId,
+    required this.detailLink,
     required this.sections,
   });
 
   final String name;
   final _Weekday weekday;
   final String? courseId;
+  final String? detailLink;
   final Set<int> sections;
 }
 
@@ -137,10 +142,25 @@ class _MergedCourse {
   void addWeeks(String weeksStr) {
     if (weeksStr == '未标注') return;
 
-    // Parse weeks string like "2、3、4、5" or "4"
+    // Parse weeks string like "2、3、4、5" or "1-16"
     final parts = weeksStr.split(RegExp(r'[、,，\s]+'));
     for (final part in parts) {
-      final week = int.tryParse(part.trim());
+      final trimPart = part.trim();
+      if (trimPart.contains('-')) {
+        final rangeParts = trimPart.split('-');
+        if (rangeParts.length == 2) {
+          final start = int.tryParse(rangeParts[0]);
+          final end = int.tryParse(rangeParts[1]);
+          if (start != null && end != null && start <= end) {
+            for (var i = start; i <= end; i++) {
+              _weekSet.add(i);
+            }
+            continue;
+          }
+        }
+      }
+      
+      final week = int.tryParse(trimPart);
       if (week != null) {
         _weekSet.add(week);
       }
@@ -159,12 +179,15 @@ class ScheduleService {
   ScheduleService({
     required Dio dio,
     required XkgoAuthenticationService xkgoAuth,
+    required JwxkAuthenticationService jwxkAuth,
   })  : _dio = dio,
         _xkgoAuth = xkgoAuth,
+        _jwxkAuth = jwxkAuth,
         _httpHelper = HttpHelper(dio);
 
   final Dio _dio;
   final XkgoAuthenticationService _xkgoAuth;
+  final JwxkAuthenticationService _jwxkAuth;
   final HttpHelper _httpHelper;
 
   static const String _schedulePath = '/course/personSchedule';
@@ -185,7 +208,16 @@ class ScheduleService {
     }
 
     final details = await _fetchCourseDetails(entries);
-    return _buildSchedule(entries, details);
+    
+    // Fetch teachers from XKGO selected course list
+    var extraTeachers = <String, String>{};
+    try {
+      extraTeachers = await _fetchTeacherInfoFromXkgo();
+    } catch (e) {
+      print('⚠️ XKGO Teacher fetch failed: $e');
+    }
+
+    return _buildSchedule(entries, details, extraTeachers);
   }
 
   /// Fetch schedule HTML
@@ -228,7 +260,7 @@ class ScheduleService {
         if (links.isEmpty) {
           final text = cell.text.trim();
           if (text.isNotEmpty) {
-            _pushCourseGroup(grouped, weekday, text, null, section);
+            _pushCourseGroup(grouped, weekday, text, null, null, section);
           }
           continue;
         }
@@ -236,11 +268,15 @@ class ScheduleService {
         for (final link in links) {
           final name = link.text.trim();
           if (name.isEmpty) continue;
+          
+          if (grouped.length < 3) {
+             print('Debug Cell HTML: ${cell.innerHtml}');
+          }
 
           final href = link.attributes['href'] ?? '';
           final match = idRegex.firstMatch(href);
           final courseId = match?.group(1);
-          _pushCourseGroup(grouped, weekday, name, courseId, section);
+          _pushCourseGroup(grouped, weekday, name, courseId, href, section);
         }
       }
     }
@@ -274,6 +310,7 @@ class ScheduleService {
     _Weekday weekday,
     String name,
     String? courseId,
+    String? detailLink,
     int section,
   ) {
     final key = '${weekday.dayIndex}::$name::${courseId ?? ""}';
@@ -283,6 +320,7 @@ class ScheduleService {
         name: name,
         weekday: weekday,
         courseId: courseId,
+        detailLink: detailLink,
         sections: {},
       ),
     );
@@ -313,6 +351,7 @@ class ScheduleService {
           startSection: start,
           endSection: prev,
           courseId: group.courseId,
+          detailLink: group.detailLink,
         ));
 
         start = section;
@@ -326,6 +365,7 @@ class ScheduleService {
         startSection: start,
         endSection: prev,
         courseId: group.courseId,
+        detailLink: group.detailLink,
       ));
     }
 
@@ -336,24 +376,35 @@ class ScheduleService {
   Future<Map<String, _CourseDetail>> _fetchCourseDetails(
     List<_CourseEntry> entries,
   ) async {
+    final details = <String, _CourseDetail>{};
+
+    // 还原用户提供的逻辑：直接从JWXK获取详情，不带额外Header，依赖共享Cookie
     final ids = entries
         .map((entry) => entry.courseId)
         .whereType<String>()
         .toSet();
 
-    final details = <String, _CourseDetail>{};
-
     for (final id in ids) {
-      final response = await _dio.get<String>(
-        '${_xkgoAuth.baseUrl}$_courseDetailPath/$id',
-        options: Options(
-          responseType: ResponseType.plain,
-          validateStatus: (status) => status != null && status < 500,
-        ),
-      );
+      // 用户提供的原逻辑：直接访问 $_jwxkBase/course/coursetime/$id
+      final url = '${_jwxkAuth.baseUrl}$_courseDetailPath/$id';
+      try {
+        final response = await _dio.get<String>(
+          url,
+          options: Options(
+            responseType: ResponseType.plain,
+            validateStatus: (status) => status != null && status < 500,
+          ),
+        );
 
-      final detail = _parseCourseDetail(response.data ?? '');
-      details[id] = detail;
+        // 如果获取到了内容，尝试解析
+        if (response.statusCode == 200 && response.data != null) {
+           final detail = _parseCourseDetail(response.data!);
+           details[id] = detail;
+        }
+      } catch (e) {
+        // 静默失败或仅简单打印，恢复简洁性
+        print('Error fetching details for $id: $e');
+      }
     }
 
     return details;
@@ -382,16 +433,69 @@ class ScheduleService {
         case '上课周次':
           detail.weeksList.add(value);
           break;
+        case '主讲教师':
+        case '教师':
+        case '授课教师':
+        case '主讲人':
+          detail.teacher = value;
+          break;
       }
     }
-
     return detail;
+  }
+
+  /// Fetch teacher info from XKGO selected courses page
+  Future<Map<String, String>> _fetchTeacherInfoFromXkgo() async {
+    final teachers = <String, String>{};
+    // Use the dynamic base URL from authentication service (handles seasonal logic)
+    final url = '${_xkgoAuth.baseUrl}/courseManage/main';
+    
+    try {
+      final response = await _dio.get<String>(
+        url,
+        options: Options(
+          responseType: ResponseType.plain,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final document = html_parser.parse(response.data);
+        // Look for the course table
+        final rows = document.querySelectorAll('table tbody tr');
+        
+        for (final row in rows) {
+          final cells = row.querySelectorAll('td');
+          // Table structure usually: [Check], CourseName, Code, ..., Teacher, ...
+          // We need to be robust. Let's look for known headers or just iterate.
+          // Based on typical structure: 
+          // Index 0: Checkbox
+          // Index 1: Course Name (link)
+          // Index 2: Course Code
+          // Index 6: Teacher (usually)
+          
+          if (cells.length >= 7) {
+            final name = cells[1].text.trim();
+            final teacher = cells[6].text.trim(); // Adjust index if needed based on inspection
+            
+            if (name.isNotEmpty && teacher.isNotEmpty) {
+               teachers[name] = teacher;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ Failed to fetch XKGO teacher info: $e');
+    }
+    
+    return teachers;
   }
 
   /// Build final Schedule from entries and details
   Schedule _buildSchedule(
     List<_CourseEntry> entries,
     Map<String, _CourseDetail> details,
+    Map<String, String> extraTeachers,
   ) {
     // Group entries and merge weeks
     final grouped = <String, _MergedCourse>{};
@@ -415,7 +519,9 @@ class ScheduleService {
           weekday: entry.weekday,
           startSection: entry.startSection,
           endSection: entry.endSection,
-          teacher: detail?.teacher ?? '待定',
+          teacher: (detail?.teacher != null && detail!.teacher != '待定' && detail.teacher.isNotEmpty)
+              ? detail.teacher
+              : (extraTeachers[entry.name] ?? '待定'),
           classroom: detail?.location ?? '待定',
           timeText: detail?.timeText ?? '',
           weeks: weeks,

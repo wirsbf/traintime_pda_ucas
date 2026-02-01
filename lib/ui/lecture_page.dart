@@ -189,6 +189,7 @@ class _LecturePageState extends State<LecturePage> {
           lecture: _lectures![index],
           settings: widget.settings,
           isAdded: isAdded,
+          onStatusChanged: _refreshAddedStatus,
         );
       },
     );
@@ -200,11 +201,13 @@ class _LectureCard extends StatelessWidget {
     required this.lecture,
     required this.settings,
     this.isAdded = false,
+    this.onStatusChanged,
   });
 
   final Lecture lecture;
   final SettingsController settings;
   final bool isAdded;
+  final VoidCallback? onStatusChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +217,7 @@ class _LectureCard extends StatelessWidget {
           context: context,
           builder: (context) =>
               LectureDetailDialog(lecture: lecture, settings: settings),
-        );
+        ).then((_) => onStatusChanged?.call());
       },
       child: Card(
         elevation: 2,

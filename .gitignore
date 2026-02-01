@@ -17,7 +17,7 @@ target/
 *.ipr
 *.iws
 .idea/
-
+debug/
 # VS Code
 .vscode/
 !.vscode/launch.json

@@ -65,7 +65,11 @@ class UcasClient {
     _jwxkAuth = JwxkAuthenticationService(dio: _dio, sepAuth: _sepAuth);
     _xkgoAuth = XkgoAuthenticationService(dio: _dio, sepAuth: _sepAuth);
 
-    _scheduleService = ScheduleService(dio: _dio, xkgoAuth: _xkgoAuth);
+    _scheduleService = ScheduleService(
+      dio: _dio,
+      xkgoAuth: _xkgoAuth,
+      jwxkAuth: _jwxkAuth,
+    );
     _scoreService = ScoreService(dio: _dio, jwxkAuth: _jwxkAuth);
     _examService = ExamService(dio: _dio, jwxkAuth: _jwxkAuth);
     _lectureService = LectureService(dio: _dio, jwxkAuth: _jwxkAuth);
@@ -108,16 +112,16 @@ class UcasClient {
       password: password,
     ));
 
-    await Future.wait([
-      _authenticateWithRetry(_jwxkAuth, Credentials(
-        username: username.contains('@') ? username : '$username@mails.ucas.ac.cn',
-        password: password,
-      )),
-      _authenticateWithRetry(_xkgoAuth, Credentials(
-        username: username,
-        password: password,
-      )),
-    ]);
+    // Authenticate with all systems sequentially to avoid cookie race conditions
+    await _authenticateWithRetry(_jwxkAuth, Credentials(
+      username: username.contains('@') ? username : '$username@mails.ucas.ac.cn',
+      password: password,
+    ));
+    
+    await _authenticateWithRetry(_xkgoAuth, Credentials(
+      username: username,
+      password: password,
+    ));
   }
 
   /// Login to SEP system (legacy API, prefer using initialize())
