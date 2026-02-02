@@ -112,6 +112,13 @@ class CourseRobber extends ChangeNotifier {
   /// Return null to abort the current operation.
   Future<String?> Function(Uint8List imageBytes)? onManualCaptchaNeeded;
 
+  int get robInterval => _settings.robInterval;
+  
+  void setRobInterval(int ms) {
+    _settings.updateRobInterval(ms);
+    notifyListeners(); 
+  }
+
   CourseRobber(this._settings);
 
   void addTarget(String code, String name) {

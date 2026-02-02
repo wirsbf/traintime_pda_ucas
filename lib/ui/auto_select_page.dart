@@ -576,9 +576,38 @@ class _AutoSelectViewState extends State<_AutoSelectView>
           ),
           child: SafeArea(
             top: false,
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
+                // Frequency Slider
+                Row(
+                  children: [
+                    const Text('监测频率', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Slider(
+                        value: robber.robInterval.toDouble(),
+                        min: 100,
+                        max: 5000,
+                        divisions: 49,
+                        label: '${robber.robInterval} ms',
+                        onChanged: (val) {
+                          robber.setRobInterval(val.toInt());
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 60,
+                      child: Text('${robber.robInterval} ms', textAlign: TextAlign.end),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                
+                // Start/Stop Button
+                Row(
+                  children: [
+                    Expanded(
                   child: FilledButton.icon(
                     icon: Icon(
                       robber.status == RobberStatus.running
@@ -611,8 +640,10 @@ class _AutoSelectViewState extends State<_AutoSelectView>
                 ),
               ],
             ),
+            ],
           ),
         ),
+      ),
       ],
     );
   }

@@ -2,31 +2,22 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsController extends ChangeNotifier {
-  SettingsController._(
-    this._prefs, {
-    required DateTime termStartDate,
-    required int weekOffset,
-    required int semesterLength,
-    required String username,
-    required String password,
-  }) : _termStartDate = termStartDate,
-       _weekOffset = weekOffset,
-       _semesterLength = semesterLength,
-       _username = username,
-       _password = password;
-
+  static const String _keyRobInterval = 'robInterval';
   static const String _keyTermStartDate = 'termStartDate';
   static const String _keyWeekOffset = 'weekOffset';
   static const String _keySemesterLength = 'semesterLength';
 
+  int _semesterLength;
+  int _robInterval;
+
   final SharedPreferences _prefs;
   DateTime _termStartDate;
   int _weekOffset;
-  int _semesterLength;
 
   DateTime get termStartDate => _termStartDate;
   int get weekOffset => _weekOffset;
   int get semesterLength => _semesterLength;
+  int get robInterval => _robInterval;
 
   static Future<SettingsController> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -40,6 +31,7 @@ class SettingsController extends ChangeNotifier {
     final termStartDate = storedStartDate ?? defaultStart;
     final weekOffset = prefs.getInt(_keyWeekOffset) ?? 0;
     final semesterLength = prefs.getInt(_keySemesterLength) ?? 20;
+    final robInterval = prefs.getInt(_keyRobInterval) ?? 1000;
 
     final username = prefs.getString(_keyUsername) ?? '';
     final password = prefs.getString(_keyPassword) ?? '';
@@ -49,10 +41,38 @@ class SettingsController extends ChangeNotifier {
       termStartDate: termStartDate,
       weekOffset: weekOffset,
       semesterLength: semesterLength,
+      robInterval: robInterval,
       username: username,
       password: password,
     );
   }
+
+  SettingsController._(
+    this._prefs, {
+    required DateTime termStartDate,
+    required int weekOffset,
+    required int semesterLength,
+    required int robInterval,
+    required String username,
+    required String password,
+  }) : _termStartDate = termStartDate,
+       _weekOffset = weekOffset,
+       _semesterLength = semesterLength,
+       _robInterval = robInterval,
+       _username = username,
+       _password = password;
+
+  // ... existing update methods ...
+
+  // ... existing update methods ...
+
+  void updateRobInterval(int ms) {
+    if (ms < 100) ms = 100; // Minimum safety limit
+    _robInterval = ms;
+    _prefs.setInt(_keyRobInterval, ms);
+    notifyListeners();
+  }
+
 
   static const String _keyUsername = 'username';
   static const String _keyPassword = 'password';

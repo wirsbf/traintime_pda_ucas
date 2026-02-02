@@ -105,7 +105,8 @@ class CourseSelectionService {
       ),
     );
 
-    return response.data ?? '';
+    final result = response.data ?? '';
+    return result;
   }
   /// Fetch the main page content (contains selected course list with instructors)
   Future<String> fetchMainPage() async {
