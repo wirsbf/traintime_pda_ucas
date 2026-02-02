@@ -420,7 +420,11 @@ class CourseRobber extends ChangeNotifier {
         for (int ocrAttempt = 1; ocrAttempt <= _maxOcrRetries; ocrAttempt++) {
           try {
             // Use unified CaptchaOcr
-            final ocrResult = await CaptchaOcr.instance.solveCaptcha(bytes);
+            // Course selection captcha is always 5-digit pure numbers.
+            final ocrResult = await CaptchaOcr.instance.solveCaptcha(
+              bytes, 
+              allowedChars: "0123456789"
+            );
             
             if (ocrResult != null && ocrResult.length >= 4) {
               code = ocrResult;

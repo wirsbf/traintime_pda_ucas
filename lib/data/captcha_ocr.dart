@@ -21,10 +21,11 @@ class CaptchaOcr {
 
   /// Solve captcha from image bytes.
   /// Returns the recognized text, or null if recognition failed.
-  Future<String?> solveCaptcha(Uint8List imageBytes) async {
+  /// [allowedChars] if provided, restricts the output to these characters.
+  Future<String?> solveCaptcha(Uint8List imageBytes, {String? allowedChars}) async {
     _lastError = null;
     // Unified ONNX implementation for ALL platforms
-    return _solveCaptchaWithOnnx(imageBytes);
+    return _solveCaptchaWithOnnx(imageBytes, allowedChars: allowedChars);
   }
 
   /* 
@@ -33,13 +34,13 @@ class CaptchaOcr {
   */
 
   /// Use custom trained ONNX CRNN model (now ddddocr) for ALL platforms.
-  Future<String?> _solveCaptchaWithOnnx(Uint8List imageBytes) async {
+  Future<String?> _solveCaptchaWithOnnx(Uint8List imageBytes, {String? allowedChars}) async {
     try {
       // Initialize service if needed
       _onnxService ??= OcrService();
       await _onnxService!.init();
 
-      final result = await _onnxService!.predict(imageBytes);
+      final result = await _onnxService!.predict(imageBytes, allowedChars: allowedChars);
       
       if (result.isEmpty || result == "Error") {
         _lastError = 'ONNX model returned empty or error';
